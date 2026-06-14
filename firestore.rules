@@ -1,0 +1,168 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helpers
+    function signedIn() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isOwner() {
+      return signedIn() && getUserData().role == 'owner';
+    }
+    
+    function isBarber() {
+      return signedIn() && getUserData().role == 'barber';
+    }
+    
+    function isClient() {
+      return signedIn() && getUserData().role == 'client';
+    }
+    
+    // 1. Users collection
+    match /users/{userId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.auth.uid == userId;
+      allow update: if signedIn() && (request.auth.uid == userId || isOwner());
+      allow delete: if isOwner();
+    }
+    
+    // 2. Barbers collection
+    match /barbers/{barberId} {
+      allow read: if signedIn();
+      allow write: if isOwner() || (isBarber() && request.auth.uid == barberId);
+    }
+    
+    // 3. Appointments collection
+    match /appointments/{aptId} {
+      allow read: if signedIn() && (
+        isOwner() || 
+        resource.data.clientUid == request.auth.uid || 
+        resource.data.barberUid == request.auth.uid
+      );
+      allow create: if signedIn() && (
+        isOwner() || 
+        request.resource.data.clientUid == request.auth.uid
+      );
+      allow update: if signedIn() && (
+        isOwner() || 
+        resource.data.clientUid == request.auth.uid || 
+        resource.data.barberUid == request.auth.uid
+      );
+      allow delete: if isOwner();
+    }
+    
+    // 4. Posts collection
+    match /posts/{postId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && (
+        isOwner() || 
+        request.resource.data.authorUid == request.auth.uid
+      );
+      allow update: if signedIn() && (
+        isOwner() || 
+        resource.data.authorUid == request.auth.uid || 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+      );
+      allow delete: if isOwner() || (signedIn() && resource.data.authorUid == request.auth.uid);
+    }
+    
+    // 5. Comments collection
+    match /comments/{commentId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && (
+        isOwner() || 
+        request.resource.data.authorUid == request.auth.uid
+      );
+      allow update, delete: if isOwner() || (signedIn() && resource.data.authorUid == request.auth.uid);
+    }
+    
+    // 6. Messages collection (Chat)
+    match /messages/{msgId} {
+      allow read: if signedIn() && (
+        isOwner() || 
+        resource.data.senderUid == request.auth.uid || 
+        resource.data.receiverUid == request.auth.uid
+      );
+      allow create: if signedIn() && (
+        isOwner() || 
+        request.resource.data.senderUid == request.auth.uid
+      );
+      allow update, delete: if isOwner();
+    }
+    
+    // 7. Services collection
+    match /services/{serviceId} {
+      allow read: if signedIn();
+      allow write: if isOwner();
+    }
+    
+    // 8. Units collection
+    match /units/{unitId} {
+      allow read: if signedIn();
+      allow write: if isOwner();
+    }
+    
+    // 9. Branding collection (singleton)
+    match /branding/{docId} {
+      allow read: if signedIn();
+      allow write: if isOwner();
+    }
+    
+    // 10. Financial (Transactions & Expenses) collections
+    match /transactions/{txId} {
+      allow read, write: if isOwner();
+    }
+    match /expenses/{expId} {
+      allow read, write: if isOwner();
+    }
+    
+    // 11. Store (Items & Redemptions) collections
+    match /storeItems/{itemId} {
+      allow read: if signedIn();
+      allow write: if isOwner();
+    }
+    match /redemptions/{redId} {
+      allow read: if signedIn() && (isOwner() || resource.data.userUid == request.auth.uid);
+      allow create: if signedIn() && (isOwner() || request.resource.data.userUid == request.auth.uid);
+      allow update: if isOwner();
+      allow delete: if isOwner();
+    }
+    
+    // 12. Betting (Leagues, Games & Bets) collections
+    match /monitoredLeagues/{leagueId} {
+      allow read: if signedIn();
+      allow write: if isOwner();
+    }
+    match /bolaoGames/{gameId} {
+      allow read: if signedIn();
+      allow write: if isOwner();
+    }
+    match /bets/{betId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && (
+        isOwner() || (
+          request.resource.data.userUid == request.auth.uid &&
+          // Segurança: impede apostas se o jogo não existir ou se faltar menos de 5 minutos (300s) para o início (startTimestamp)
+          (!exists(/databases/$(database)/documents/bolaoGames/$(request.resource.data.matchId)) ||
+           !("startTimestamp" in get(/databases/$(database)/documents/bolaoGames/$(request.resource.data.matchId)).data) ||
+           request.time < get(/databases/$(database)/documents/bolaoGames/$(request.resource.data.matchId)).data.startTimestamp - duration.value(5, 'm'))
+        )
+      );
+      allow delete: if isOwner();
+    }
+    match /betting_leaderboard/{userId} {
+      allow read: if signedIn();
+      allow write: if isOwner();
+    }
+    match /conversionHistory/{historyId} {
+      allow read: if signedIn() && (isOwner() || resource.data.userUid == request.auth.uid);
+      allow create: if signedIn() && (isOwner() || request.resource.data.userUid == request.auth.uid);
+      allow update, delete: if isOwner();
+    }
+  }
+}
