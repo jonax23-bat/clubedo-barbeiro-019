@@ -4,7 +4,7 @@ import {
   query, where, orderBy, limit, addDoc, arrayUnion, arrayRemove, serverTimestamp,
   onSnapshot, runTransaction
 } from "firebase/firestore";
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, onAuthStateChanged, signOut } from "firebase/auth";
 import { calcularNivel, calcularDiferencaEmMeses, getMesesParaProximoNivel, NIVEL_CONFIG } from "../utils/levelSystem";
 
 // --- Dados Mockados Iniciais ---
@@ -821,18 +821,143 @@ const initMockStorage = () => {
 };
 
 const isRealFirebase = () => {
-  return auth.app.options.apiKey !== "mock-api-key";
+  return true;
 };
 
 // --- SERVIÇO DE BANCO DE DADOS UNIFICADO ---
 export const dbService = {
   // Inicialização
-  init: () => {
+  init: async () => {
     initMockStorage();
+
+    // Sincroniza dados locais iniciais com o Firestore caso ele esteja vazio
+    if (isRealFirebase()) {
+      try {
+        // 1. Sincronizar Usuários e Leaderboard
+        const usersSnap = await getDocs(collection(db, "users"));
+        if (usersSnap.empty) {
+          console.log("[Firebase Sync] Sincronizando usuários iniciais...");
+          const localUsers = getLocalStorage("users") || {};
+          for (const [uid, userObj] of Object.entries(localUsers)) {
+            const { password, ...firestoreUser } = userObj;
+            await setDoc(doc(db, "users", uid), firestoreUser);
+            await setDoc(doc(db, "leaderboard", uid), {
+              name: userObj.name,
+              xp: userObj.xp || 0,
+              avatar: userObj.avatarUrl || ""
+            });
+          }
+        }
+
+        // 2. Sincronizar Barbeiros
+        const barbersSnap = await getDocs(collection(db, "barbers"));
+        if (barbersSnap.empty) {
+          console.log("[Firebase Sync] Sincronizando barbeiros iniciais...");
+          const localBarbers = getLocalStorage("barbers") || [];
+          for (const barber of localBarbers) {
+            await setDoc(doc(db, "barbers", barber.uid), barber);
+          }
+        }
+
+        // 3. Sincronizar Unidades
+        const unitsSnap = await getDocs(collection(db, "units"));
+        if (unitsSnap.empty) {
+          console.log("[Firebase Sync] Sincronizando unidades iniciais...");
+          const localUnits = getLocalStorage("units") || [];
+          for (const unit of localUnits) {
+            await setDoc(doc(db, "units", unit.id), unit);
+          }
+        }
+
+        // 4. Sincronizar Serviços
+        const servicesSnap = await getDocs(collection(db, "services"));
+        if (servicesSnap.empty) {
+          console.log("[Firebase Sync] Sincronizando serviços iniciais...");
+          const localServices = getLocalStorage("services") || [];
+          for (const service of localServices) {
+            await setDoc(doc(db, "services", service.id), service);
+          }
+        }
+
+        // 5. Sincronizar Configurações de Planos
+        const plansDoc = await getDoc(doc(db, "configs", "plans"));
+        if (!plansDoc.exists()) {
+          console.log("[Firebase Sync] Sincronizando planConfigs iniciais...");
+          const localPlanConfigs = getLocalStorage("planConfigs") || INITIAL_MOCK_DATA.planConfigs;
+          await setDoc(doc(db, "configs", "plans"), localPlanConfigs);
+        }
+
+        // 5b. Sincronizar Ligas Monitoradas
+        const monitoredLeaguesSnap = await getDocs(collection(db, "monitoredLeagues"));
+        if (monitoredLeaguesSnap.empty) {
+          console.log("[Firebase Sync] Sincronizando monitoredLeagues iniciais...");
+          const localLeagues = getLocalStorage("monitoredLeagues") || INITIAL_MOCK_DATA.monitoredLeagues || [];
+          for (const league of localLeagues) {
+            await setDoc(doc(db, "monitoredLeagues", league.id), { active: league.active });
+          }
+        }
+
+        // 6. Cadastrar usuário do Google pré-existente se estiver faltando no Firestore
+        const googleUserUid = "pNYbNMcvIfO3QTiJHPAk7tg2eOf1";
+        const gUserRef = doc(db, "users", googleUserUid);
+        const gUserSnap = await getDoc(gUserRef);
+        if (!gUserSnap.exists()) {
+          console.log("[Firebase Sync] Cadastrando usuário do Google pré-existente...");
+          const gUserObj = {
+            uid: googleUserUid,
+            name: "jonasx23 Xbox",
+            email: "mc.jon.b8@gmail.com",
+            role: "client",
+            xp: 0,
+            coins: 0,
+            plan: null,
+            subscriptionStartDate: null,
+            avatarUrl: "https://lh3.googleusercontent.com/a/ACg8ocIqLFmMeH2dc8BSUw8QVkkalRjaTaRhl5Xe-p0p4cY28EUSN3Cpww=s96-c",
+            createdAt: new Date().toISOString()
+          };
+          await setDoc(gUserRef, gUserObj);
+
+          // Adiciona ao leaderboard de XP no Firestore
+          await setDoc(doc(db, "leaderboard", googleUserUid), {
+            name: gUserObj.name,
+            xp: gUserObj.xp,
+            avatar: gUserObj.avatarUrl
+          });
+
+          // Sincroniza localmente
+          const localUsers = getLocalStorage("users") || {};
+          localUsers[googleUserUid] = gUserObj;
+          setLocalStorage("users", localUsers);
+          
+          console.log("[Firebase Sync] Usuário do Google pré-existente cadastrado com sucesso.");
+        }
+        
+        console.log("[Firebase Sync] Sincronização de inicialização concluída.");
+      } catch (e) {
+        console.warn("[Firebase Sync] Falha ao sincronizar dados com o Firestore:", e);
+      }
+    }
   },
 
   isRealFirebase: () => {
     return isRealFirebase();
+  },
+
+  subscribeToAuth: (callback) => {
+    if (isRealFirebase()) {
+      return onAuthStateChanged(auth, callback);
+    }
+    return () => {};
+  },
+
+  logout: async () => {
+    if (isRealFirebase()) {
+      try {
+        await signOut(auth);
+      } catch (e) {
+        console.error("Erro ao fazer logout no Firebase:", e);
+      }
+    }
   },
 
   // Login via Google
@@ -873,6 +998,23 @@ export const dbService = {
             avatar: userObj.avatarUrl
           });
         }
+
+        // Sincroniza o usuário logado com o LocalStorage
+        try {
+          const users = getLocalStorage("users") || {};
+          users[user.uid] = userObj;
+          setLocalStorage("users", users);
+
+          // Atualiza leaderboard localmente
+          const leaderboard = getLocalStorage("leaderboard") || [];
+          if (!leaderboard.some(l => l.name === userObj.name)) {
+            leaderboard.push({ name: userObj.name, xp: userObj.xp, avatar: userObj.avatarUrl });
+            setLocalStorage("leaderboard", leaderboard);
+          }
+        } catch (storageErr) {
+          console.warn("Erro ao sincronizar login do Google com LocalStorage:", storageErr);
+        }
+
         return userObj;
       } catch (e) {
         console.error("Erro no Login com Google (Firebase), caindo para Mock Auth", e);
@@ -925,6 +1067,35 @@ export const dbService = {
     return users[uid] || null;
   },
 
+  createUserDocument: async (uid, userObj) => {
+    if (isRealFirebase()) {
+      try {
+        const docRef = doc(db, "users", uid);
+        await setDoc(docRef, userObj);
+        
+        // Também adiciona no leaderboard
+        await setDoc(doc(db, "leaderboard", uid), {
+          name: userObj.name,
+          xp: userObj.xp,
+          avatar: userObj.avatarUrl
+        });
+      } catch (e) {
+        console.error("Erro ao criar documento do usuário no Firestore:", e);
+        throw e;
+      }
+    }
+    // Sincroniza localmente
+    const users = getLocalStorage("users") || {};
+    users[uid] = userObj;
+    setLocalStorage("users", users);
+    
+    const leaderboard = getLocalStorage("leaderboard") || [];
+    if (!leaderboard.some(l => l.name === userObj.name)) {
+      leaderboard.push({ name: userObj.name, xp: userObj.xp, avatar: userObj.avatarUrl });
+      setLocalStorage("leaderboard", leaderboard);
+    }
+  },
+
   login: async (loginOrEmail, password) => {
     const users = getLocalStorage("users") || {};
     const barbers = getLocalStorage("barbers") || [];
@@ -972,6 +1143,92 @@ export const dbService = {
     const userPassword = user.password || "Club@2026";
     if (userPassword !== password) {
       throw new Error("INCORRECT_PASSWORD");
+    }
+    
+    if (isRealFirebase()) {
+      // Firebase Auth exige senha com no mínimo 6 caracteres.
+      // Para senhas locais curtas (ex: "admin"), derivamos uma senha mais longa para o Auth.
+      const firebasePassword = password.length >= 6 ? password : password + "_Cb!26";
+      
+      try {
+        let userCredential;
+        try {
+          // Tenta fazer login no Firebase Auth
+          userCredential = await signInWithEmailAndPassword(auth, user.email, firebasePassword);
+        } catch (signInErr) {
+          // Se o erro for de usuário não encontrado, registramos no Auth automaticamente
+          if (signInErr.code === "auth/user-not-found" || signInErr.code === "auth/invalid-credential") {
+            console.log(`[dbService] Criando usuário no Firebase Auth para ${user.email}...`);
+            try {
+              userCredential = await createUserWithEmailAndPassword(auth, user.email, firebasePassword);
+              await updateProfile(userCredential.user, { displayName: user.name });
+              
+              // Garante que o documento dele existe no Firestore com a role correta
+              const userRef = doc(db, "users", userCredential.user.uid);
+              const { password: _, ...firestoreUser } = user;
+              firestoreUser.uid = userCredential.user.uid;
+              await setDoc(userRef, firestoreUser);
+              
+              await setDoc(doc(db, "leaderboard", userCredential.user.uid), {
+                name: user.name,
+                xp: user.xp || 0,
+                avatar: user.avatarUrl || ""
+              });
+              
+              console.log(`[dbService] Usuário ${user.email} criado no Firebase Auth com uid: ${userCredential.user.uid}`);
+            } catch (createErr) {
+              console.error("Erro ao registrar usuário no Firebase Auth:", createErr.code, createErr.message);
+            }
+          } else {
+            throw signInErr;
+          }
+        }
+        
+        if (userCredential) {
+          const firebaseUid = userCredential.user.uid;
+          const docRef = doc(db, "users", firebaseUid);
+          const docSnap = await getDoc(docRef);
+          let finalUser;
+          if (docSnap.exists()) {
+            finalUser = docSnap.data();
+            // Garante que a role esteja correta (caso o documento exista mas sem role)
+            if (!finalUser.role && user.role) {
+              finalUser.role = user.role;
+              await updateDoc(docRef, { role: user.role });
+            }
+          } else {
+            finalUser = {
+              ...user,
+              uid: firebaseUid
+            };
+            delete finalUser.password;
+            await setDoc(docRef, finalUser);
+            await setDoc(doc(db, "leaderboard", firebaseUid), {
+              name: finalUser.name,
+              xp: finalUser.xp || 0,
+              avatar: finalUser.avatarUrl || ""
+            });
+          }
+          
+          // Sincroniza localmente
+          const localUsers = getLocalStorage("users") || {};
+          localUsers[firebaseUid] = finalUser;
+          if (user.uid !== firebaseUid) {
+            delete localUsers[user.uid];
+          }
+          setLocalStorage("users", localUsers);
+          
+          return finalUser;
+        }
+      } catch (authErr) {
+        console.error("Erro na autenticação Firebase no login:", authErr);
+        if (authErr.code === "auth/wrong-password" || authErr.code === "auth/invalid-credential") {
+          throw new Error("INCORRECT_PASSWORD");
+        }
+        if (authErr.code === "auth/invalid-email") {
+          throw new Error("USER_NOT_FOUND");
+        }
+      }
     }
     
     return user;
@@ -2312,10 +2569,22 @@ export const dbService = {
 
   // --- MÓDULO 7: BOLÃO ---
   getMonitoredLeagues: async () => {
+    if (isRealFirebase()) {
+      try {
+        const querySnapshot = await getDocs(collection(db, "monitoredLeagues"));
+        const list = [];
+        querySnapshot.forEach(docSnap => {
+          list.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        if (list.length > 0) return list;
+      } catch (e) {
+        console.error("Erro ao buscar monitoredLeagues no Firestore:", e);
+      }
+    }
     return getLocalStorage("monitoredLeagues") || [];
   },
 
-  // CORRIGIDO: usa upsert — adiciona a liga se ela ainda não existir no localStorage
+  // CORRIGIDO: usa upsert — adiciona a liga se ela ainda não existir no localStorage e sincroniza com Firestore se real
   toggleLeague: async (leagueId, active) => {
     const leagues = getLocalStorage("monitoredLeagues") || [];
     const exists = leagues.find(l => l.id === leagueId);
@@ -2328,6 +2597,15 @@ export const dbService = {
       updated = [...leagues, { id: leagueId, active }];
     }
     setLocalStorage("monitoredLeagues", updated);
+
+    if (isRealFirebase()) {
+      try {
+        const docRef = doc(db, "monitoredLeagues", leagueId);
+        await setDoc(docRef, { active }, { merge: true });
+      } catch (e) {
+        console.error("Erro ao salvar monitoredLeagues no Firestore:", e);
+      }
+    }
     return true;
   },
 
@@ -2339,6 +2617,10 @@ export const dbService = {
         querySnapshot.forEach(docSnap => {
           games.push({ id: docSnap.id, ...docSnap.data() });
         });
+        // Cache local para consultas rápidas ou offline
+        if (games.length > 0) {
+          setLocalStorage("bolaoGames", games);
+        }
       } catch (e) {
         console.error("Erro ao buscar bolaoGames no Firebase:", e);
         games = getLocalStorage("bolaoGames") || [];
@@ -2504,7 +2786,7 @@ export const dbService = {
     }
   },
 
-  // MELHORADO: sincroniza APENAS jogos da API real; remove mock games que não vieram da API
+  // MELHORADO: sincroniza APENAS jogos da API real; mescla com jogos existentes sem descartar agendados antigos
   syncGamesFromApi: async () => {
     // Roda a rotina de limpeza de 60 dias antes de sincronizar novos jogos
     await dbService.pruneOldBetsAndGames();
@@ -2522,37 +2804,68 @@ export const dbService = {
       throw new Error("NO_ACTIVE_LEAGUES");
     }
 
-    // Mantém apenas jogos reais da API que já foram encerrados
+    // Carrega jogos salvos localmente
     let savedGames = getLocalStorage("bolaoGames") || [];
-    const keptGames = savedGames.filter(g => g.apiMatchId && g.status === "finished");
 
-    let newGamesFromApi = [];
+    // Se for Firebase real, tenta buscar os jogos mais recentes do Firestore para mesclar de forma consistente
+    if (isRealFirebase()) {
+      try {
+        const querySnapshot = await getDocs(collection(db, "bolaoGames"));
+        const fbGames = [];
+        querySnapshot.forEach(docSnap => {
+          fbGames.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        if (fbGames.length > 0) {
+          savedGames = fbGames;
+        }
+      } catch (e) {
+        console.warn("Erro ao buscar bolaoGames do Firestore para mesclagem:", e);
+      }
+    }
 
+    // Mapeia por ID para evitar duplicatas e preservar histórico
+    const gamesMap = {};
+    for (const g of savedGames) {
+      // Garante que o startTimestamp seja mantido como string ISO se for objeto Date do Firestore
+      const startTimestampStr = g.startTimestamp && typeof g.startTimestamp === 'object' && g.startTimestamp.toDate
+        ? g.startTimestamp.toDate().toISOString()
+        : (g.startTimestamp?.seconds ? new Date(g.startTimestamp.seconds * 1000).toISOString() : g.startTimestamp);
+
+      gamesMap[g.id] = {
+        ...g,
+        startTimestamp: startTimestampStr
+      };
+    }
+
+    // Mescla com os jogos recebidos da API ESPN
     for (const league of activeLeagues) {
       const fixtures = await sportsApi.fetchFixtures(league.id);
       for (const fix of fixtures) {
-        // Atualiza jogo existente pelo apiMatchId se já foi importado
-        const existingIdx = keptGames.findIndex(g => g.apiMatchId === fix.apiMatchId);
-        if (existingIdx >= 0) {
-          // Atualiza status e placar se mudou
-          keptGames[existingIdx] = {
-            ...keptGames[existingIdx],
-            status: fix.status,
-            realScoreHome: fix.realScoreHome,
-            realScoreAway: fix.realScoreAway,
-            minute: fix.minute,
-          };
-        } else if (fix.status !== "finished") {
-          // Adiciona novo jogo (não encerrado para não poluir com resultados antigos)
-          newGamesFromApi.push({
+        const existing = gamesMap[fix.id];
+        if (existing) {
+          // Atualiza dados mantendo a data de criação.
+          // Só atualiza resultados/placar se o jogo existente não estiver encerrado manualmente ou se o novo status for finished
+          if (existing.status !== "finished" || fix.status === "finished") {
+            gamesMap[fix.id] = {
+              ...existing,
+              ...fix,
+              status: fix.status,
+              realScoreHome: fix.realScoreHome !== null ? fix.realScoreHome : existing.realScoreHome,
+              realScoreAway: fix.realScoreAway !== null ? fix.realScoreAway : existing.realScoreAway,
+              minute: fix.minute,
+            };
+          }
+        } else {
+          // Insere novo jogo
+          gamesMap[fix.id] = {
             ...fix,
             createdAt: new Date().toISOString()
-          });
+          };
         }
       }
     }
 
-    const merged = [...keptGames, ...newGamesFromApi];
+    const merged = Object.values(gamesMap);
     setLocalStorage("bolaoGames", merged);
 
     if (isRealFirebase()) {
@@ -2708,7 +3021,7 @@ export const dbService = {
       }
     }
 
-    if (changed && !isRealFirebase()) {
+    if (changed) {
       setLocalStorage("bolaoGames", updatedGames);
     }
 
@@ -3114,11 +3427,6 @@ export const dbService = {
     return getLocalStorage("bets") || [];
   },
 
-  getUsers: async () => {
-    const users = getLocalStorage("users") || {};
-    return Object.values(users);
-  },
-
   updateUserSubscriptionDate: async (uid, dateStr) => {
     if (isRealFirebase()) {
       try {
@@ -3166,6 +3474,138 @@ export const dbService = {
       return users[userKey];
     }
     return null;
+  },
+
+  requestPlanSubscription: async (uid, userName, userEmail, planName, price, xpBonus) => {
+    const reqId = `req_${uid}_${Date.now()}`;
+    const newRequest = {
+      id: reqId,
+      userId: uid,
+      userName: userName,
+      userEmail: userEmail,
+      planName: planName,
+      price: price,
+      xpBonus: xpBonus,
+      status: "pending",
+      createdAt: new Date().toISOString()
+    };
+
+    if (isRealFirebase()) {
+      try {
+        const docRef = doc(db, "planRequests", reqId);
+        await setDoc(docRef, newRequest);
+        return newRequest;
+      } catch (e) {
+        console.error("Erro ao criar solicitação de plano no Firestore:", e);
+        throw e;
+      }
+    }
+
+    const requests = getLocalStorage("planRequests") || [];
+    requests.push(newRequest);
+    setLocalStorage("planRequests", requests);
+    return newRequest;
+  },
+
+  getPlanRequests: async () => {
+    if (isRealFirebase()) {
+      try {
+        const q = query(collection(db, "planRequests"), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        const list = [];
+        querySnapshot.forEach(docSnap => {
+          list.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        return list;
+      } catch (e) {
+        console.error("Erro ao buscar solicitações no Firebase:", e);
+        return [];
+      }
+    }
+    return getLocalStorage("planRequests") || [];
+  },
+
+  listenToPlanRequests: (callback) => {
+    if (isRealFirebase()) {
+      try {
+        const q = query(collection(db, "planRequests"), orderBy("createdAt", "desc"));
+        return onSnapshot(q, (snapshot) => {
+          const list = [];
+          snapshot.forEach(docSnap => {
+            list.push({ id: docSnap.id, ...docSnap.data() });
+          });
+          callback(list);
+        }, (error) => {
+          console.error("Erro no onSnapshot das solicitações de planos:", error);
+        });
+      } catch (e) {
+        console.error("Erro ao escutar solicitações de planos no Firebase:", e);
+      }
+    }
+    return null;
+  },
+
+  approvePlanSubscription: async (requestId) => {
+    let requestObj = null;
+
+    if (isRealFirebase()) {
+      try {
+        const reqRef = doc(db, "planRequests", requestId);
+        const reqSnap = await getDoc(reqRef);
+        if (reqSnap.exists()) {
+          requestObj = reqSnap.data();
+          
+          // 1. Atualiza o status da solicitação
+          await updateDoc(reqRef, { status: "approved" });
+
+          // 2. Assina o plano do usuário (usa o método já existente subscribeToPlan)
+          await dbService.subscribeToPlan(requestObj.userId, requestObj.planName);
+
+          // 3. Credita o bônus de XP se houver
+          if (requestObj.xpBonus > 0) {
+            await dbService.updateUserXP(requestObj.userId, requestObj.xpBonus, Math.floor(requestObj.xpBonus / 10));
+          }
+        }
+      } catch (e) {
+        console.error("Erro ao aprovar solicitação no Firebase:", e);
+        throw e;
+      }
+    } else {
+      const requests = getLocalStorage("planRequests") || [];
+      const idx = requests.findIndex(r => r.id === requestId);
+      if (idx !== -1) {
+        requests[idx].status = "approved";
+        requestObj = requests[idx];
+        setLocalStorage("planRequests", requests);
+        
+        // Assina plano localmente
+        await dbService.subscribeToPlan(requestObj.userId, requestObj.planName);
+        
+        // Credita bônus localmente
+        if (requestObj.xpBonus > 0) {
+          await dbService.updateUserXP(requestObj.userId, requestObj.xpBonus, Math.floor(requestObj.xpBonus / 10));
+        }
+      }
+    }
+  },
+
+  rejectPlanSubscription: async (requestId) => {
+    if (isRealFirebase()) {
+      try {
+        const reqRef = doc(db, "planRequests", requestId);
+        await updateDoc(reqRef, { status: "rejected" });
+      } catch (e) {
+        console.error("Erro ao recusar solicitação no Firebase:", e);
+        throw e;
+      }
+    } else {
+      const requests = getLocalStorage("planRequests") || [];
+      const idx = requests.findIndex(r => r.id === requestId);
+      if (idx !== -1) {
+        requests[idx].status = "rejected";
+        setLocalStorage("planRequests", requests);
+      }
+    }
   },
 
   getPlanConfigs: async () => {
@@ -3265,6 +3705,23 @@ export const dbService = {
     leaderboard.push({ name: newClient.name, xp: newClient.xp, avatar: newClient.avatarUrl });
     setLocalStorage("leaderboard", leaderboard);
 
+    // Salva no Firestore se real Firebase ativo
+    if (isRealFirebase()) {
+      try {
+        const docRef = doc(db, "users", uid);
+        await setDoc(docRef, newClient);
+
+        // Adiciona ao leaderboard de XP no Firestore
+        await setDoc(doc(db, "leaderboard", uid), {
+          name: newClient.name,
+          xp: newClient.xp,
+          avatar: newClient.avatarUrl
+        });
+      } catch (e) {
+        console.error("Erro ao cadastrar cliente no Firestore:", e);
+      }
+    }
+
     return newClient;
   },
 
@@ -3287,7 +3744,82 @@ export const dbService = {
         const updatedBL = bettingLeaderboard.map(lb => lb.userUid === uid ? { ...lb, name: users[uid].name, avatar: users[uid].avatarUrl } : lb);
         setLocalStorage("betting_leaderboard", updatedBL);
       }
+
+      // Salva no Firestore se real Firebase ativo
+      if (isRealFirebase()) {
+        try {
+          const docRef = doc(db, "users", uid);
+          await setDoc(docRef, clientData, { merge: true });
+
+          // Se o nome ou avatar mudarem, atualiza no leaderboard do Firestore também
+          if (oldName !== clientData.name || oldAvatar !== clientData.avatarUrl) {
+            const leaderboardRef = doc(db, "leaderboard", uid);
+            const leaderboardSnap = await getDoc(leaderboardRef);
+            if (leaderboardSnap.exists()) {
+              await setDoc(leaderboardRef, {
+                name: clientData.name !== undefined ? clientData.name : oldName,
+                avatar: clientData.avatarUrl !== undefined ? clientData.avatarUrl : oldAvatar
+              }, { merge: true });
+            }
+          }
+        } catch (e) {
+          console.error("Erro ao atualizar cliente no Firestore:", e);
+        }
+      }
+
       return users[uid];
+    }
+
+    // Se o cliente não existir no LocalStorage local, mas estiver usando Firebase Real,
+    // atualizamos diretamente no Firestore.
+    if (isRealFirebase()) {
+      try {
+        const docRef = doc(db, "users", uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const oldData = docSnap.data();
+          const updatedData = { ...oldData, ...clientData };
+          await setDoc(docRef, clientData, { merge: true });
+
+          // Atualiza leaderboard do Firestore se mudou nome/avatar
+          if (oldData.name !== updatedData.name || oldData.avatarUrl !== updatedData.avatarUrl) {
+            await setDoc(doc(db, "leaderboard", uid), {
+              name: updatedData.name,
+              avatar: updatedData.avatarUrl
+            }, { merge: true });
+          }
+
+          // Atualiza localmente para manter sincronizado
+          const users = getLocalStorage("users") || {};
+          users[uid] = updatedData;
+          setLocalStorage("users", users);
+
+          return updatedData;
+        }
+      } catch (e) {
+        console.error("Erro ao atualizar cliente externo no Firestore:", e);
+      }
+    }
+
+    return null;
+  },
+
+  listenToClients: (callback) => {
+    if (isRealFirebase()) {
+      try {
+        const q = query(collection(db, "users"), where("role", "==", "client"));
+        return onSnapshot(q, (snapshot) => {
+          const list = [];
+          snapshot.forEach(docSnap => {
+            list.push({ uid: docSnap.id, ...docSnap.data() });
+          });
+          callback(list);
+        }, (error) => {
+          console.error("Erro no onSnapshot dos clientes:", error);
+        });
+      } catch (e) {
+        console.error("Erro ao escutar clientes no Firebase:", e);
+      }
     }
     return null;
   },

@@ -118,17 +118,7 @@ export default function Home({ user, navigateTo, refreshUser }) {
     }
   }, [currentUser]);
 
-  const handleSimulateSubscriptionDate = async (newDateStr) => {
-    try {
-      const updatedUser = await dbService.updateUserSubscriptionDate(currentUser.uid, newDateStr);
-      if (updatedUser) {
-        setCurrentUser({ ...updatedUser });
-        if (refreshUser) refreshUser();
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
+
 
   const handleRedirectToReschedule = async (aptId) => {
     await dbService.cancelAppointment(aptId);
@@ -213,23 +203,7 @@ export default function Home({ user, navigateTo, refreshUser }) {
                 : `${userLevel.mesesParaProximo} ${userLevel.mesesParaProximo === 1 ? "mês" : "meses"} para o nível ${userLevel.proximoNome}`
               }
             </p>
-            <div className="mt-3 pt-3 border-t border-outline-variant/10 flex flex-col gap-1">
-              <label className="text-[9px] uppercase tracking-wider text-outline block">Simular Tempo:</label>
-              <select
-                value={currentUser.subscriptionStartDate || ""}
-                onChange={(e) => handleSimulateSubscriptionDate(e.target.value)}
-                className="bg-surface-container border border-outline-variant/30 rounded px-1.5 py-0.5 text-[10px] text-tertiary font-bold cursor-pointer focus:outline-none"
-              >
-                <option value="2026-06-01T12:00:00.000Z">Novato (0 meses) 🦶</option>
-                <option value="2026-04-01T12:00:00.000Z">Cria (2 meses) ✂️</option>
-                <option value="2026-01-01T12:00:00.000Z">Veterano (5 meses) 🔥</option>
-                <option value="2025-09-01T12:00:00.000Z">Fiel (9 meses) 👑</option>
-                <option value="2025-04-01T12:00:00.000Z">Elite (14 meses) ⚡</option>
-                <option value="2024-09-01T12:00:00.000Z">Lenda (21 meses) 🌟</option>
-                <option value="2023-09-01T12:00:00.000Z">Imortal (33 meses) 💎</option>
-                <option value="2022-01-01T12:00:00.000Z">Clã Barbeiro (52 meses) 🔱</option>
-              </select>
-            </div>
+
           </div>
         </div>
 

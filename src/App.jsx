@@ -6,6 +6,7 @@ import Home from "./pages/Home";
 import Schedule from "./pages/Schedule";
 import Plans from "./pages/Plans";
 import Community from "./pages/Community";
+import Bolao from "./pages/Bolao";
 import BarberProfile from "./pages/BarberProfile";
 import ManageTeam from "./pages/ManageTeam";
 import ShopBranding from "./pages/ShopBranding";
@@ -21,18 +22,15 @@ export default function App() {
   // --- Estados Globais ---
   const [currentUser, setCurrentUser] = useState(null);
   const [currentView, setCurrentView] = useState("home"); // home | schedule | plans | community | barber_profile | manage_team | shop_branding
+  const [authLoading, setAuthLoading] = useState(true);
   const [brandingName, setBrandingName] = useState("Clubber Barbershop");
-  
-  // Dev Backdoor states
-  const [logoClickCount, setLogoClickCount] = useState(0);
-  const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   // --- Inicializa o Banco de Dados local/mock ---
   useEffect(() => {
     dbService.init();
     
-    // Check if there is an active session
+    // Restaura sessão local imediatamente para evitar flash de tela de login
     const savedUser = localStorage.getItem("clubber_current_user");
     if (savedUser) {
       try {
@@ -51,6 +49,70 @@ export default function App() {
         setCurrentUser(null);
       }
     }
+
+    // Escuta mudanças de estado de autenticação do Firebase
+    // Isso garante que após reload, o Firebase Auth resolva o estado do usuário
+    // e atualize o currentUser com dados frescos do Firestore
+    const unsubscribe = dbService.subscribeToAuth(async (firebaseUser) => {
+      setAuthLoading(false);
+      if (firebaseUser) {
+        try {
+          const dbUser = await dbService.getUser(firebaseUser.uid);
+          if (dbUser) {
+            setCurrentUser(dbUser);
+            localStorage.setItem("clubber_current_user", JSON.stringify(dbUser));
+          } else {
+            // Se o usuário está no Firebase Auth mas não tem documento no Firestore:
+            // Caso já exista um currentUser carregado no state (por exemplo, que acabou de ser setado pelo Login.jsx),
+            // evitamos sobrescrever. Mas se não há currentUser ou ele for de outra conta, limpamos ou criamos.
+            const savedUser = localStorage.getItem("clubber_current_user");
+            let parsed = null;
+            if (savedUser) {
+              try { parsed = JSON.parse(savedUser); } catch(e){}
+            }
+
+            if (parsed && parsed.uid === firebaseUser.uid) {
+              // Já está correto, talvez a gravação no Firestore esteja em andamento
+              return;
+            }
+
+            console.log("[App] Criando documento no Firestore para usuário do Firebase Auth...");
+            const newUserObj = {
+              uid: firebaseUser.uid,
+              name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
+              email: firebaseUser.email,
+              role: "client",
+              xp: 0,
+              coins: 0,
+              plan: null,
+              subscriptionStartDate: null,
+              avatarUrl: firebaseUser.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=60",
+              createdAt: new Date().toISOString()
+            };
+            await dbService.createUserDocument(firebaseUser.uid, newUserObj);
+            setCurrentUser(newUserObj);
+            localStorage.setItem("clubber_current_user", JSON.stringify(newUserObj));
+          }
+        } catch (e) {
+          console.warn("[App] Erro ao sincronizar estado de autenticação:", e);
+          // Se falhar a criação/busca, limpa a sessão para evitar loop e bypass
+          if (dbService.isRealFirebase()) {
+            await dbService.logout();
+            setCurrentUser(null);
+            localStorage.removeItem("clubber_current_user");
+          }
+        }
+      } else {
+        // Se real Firebase estiver ativo e não houver usuário autenticado no Firebase Auth,
+        // limpamos o estado local para garantir que o usuário seja levado à tela de login
+        if (dbService.isRealFirebase()) {
+          setCurrentUser(null);
+          localStorage.removeItem("clubber_current_user");
+        }
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // --- Atualiza os dados do usuário atual a partir do Banco de Dados ---
@@ -77,49 +139,13 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await dbService.logout();
     localStorage.removeItem("clubber_current_user");
     setCurrentUser(null);
   };
 
-  // Backdoor Handler: clicking 3 times on the brand logo toggles role switcher
-  const handleLogoClick = () => {
-    setLogoClickCount(prev => {
-      const nextCount = prev + 1;
-      if (nextCount >= 3) {
-        setShowRoleSwitcher(show => !show);
-        return 0; // reset
-      }
-      return nextCount;
-    });
-    // Reset click count after 2.5 seconds of inactivity
-    setTimeout(() => {
-      setLogoClickCount(0);
-    }, 2500);
-  };
 
-  const handleRoleChange = async (role) => {
-    const defaultUsersMap = {
-      client: "ricardo_uid",
-      barber: "barber_victor",
-      owner: "owner_uid"
-    };
-    const targetUid = defaultUsersMap[role];
-    const dbUser = await dbService.getUser(targetUid);
-    if (dbUser) {
-      setCurrentUser(dbUser);
-      localStorage.setItem("clubber_current_user", JSON.stringify(dbUser));
-      
-      // Change view based on role
-      if (role === "client") {
-        setCurrentView("home");
-      } else if (role === "barber") {
-        setCurrentView("barber_profile");
-      } else if (role === "owner") {
-        setCurrentView("manage_team");
-      }
-    }
-  };
 
   // --- Renderização da Página Atual ---
   const renderView = () => {
@@ -133,6 +159,8 @@ export default function App() {
         return <Plans user={currentUser} navigateTo={setCurrentView} refreshUser={refreshUser} />;
       case "community":
         return <Community user={currentUser} navigateTo={setCurrentView} refreshUser={refreshUser} />;
+      case "bolao":
+        return <Bolao user={currentUser} navigateTo={setCurrentView} refreshUser={refreshUser} />;
       case "barber_profile":
         return <BarberProfile user={currentUser} navigateTo={setCurrentView} refreshUser={refreshUser} initialTab="overview" />;
       case "barber_settings":
@@ -158,6 +186,20 @@ export default function App() {
     }
   };
 
+  // Aguarda o Firebase Auth resolver antes de renderizar
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <div className="flex flex-col items-center gap-md animate-pulse">
+          <div className="w-16 h-16 rounded-full bg-tertiary/10 border border-tertiary/20 flex items-center justify-center text-tertiary shadow-lg shadow-tertiary/5">
+            <span className="material-symbols-outlined text-4xl animate-spin">sync</span>
+          </div>
+          <p className="text-on-surface-variant text-sm font-bold uppercase tracking-wider">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Render Login screen if there is no active session
   if (!currentUser) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
@@ -166,26 +208,10 @@ export default function App() {
   return (
     <div className="min-h-screen bg-surface text-on-surface custom-scrollbar selection:bg-tertiary/30">
       
-      {/* --- FLOATING ROLE SWITCHER (Dev Backdoor) --- */}
-      {showRoleSwitcher && (
-        <div className="fixed bottom-24 right-6 lg:bottom-6 lg:right-6 z-50 bg-surface-container-high/90 border border-outline-variant/30 px-3 py-2 rounded-xl backdrop-blur flex items-center gap-2 shadow-2xl animate-scale-in">
-          <span className="text-label-sm font-label-sm text-outline uppercase tracking-wider hidden sm:inline">Modo:</span>
-          <select 
-            value={currentUser.role}
-            onChange={(e) => handleRoleChange(e.target.value)}
-            className="bg-surface border border-outline-variant/30 rounded px-2 py-1 text-label-sm font-label-sm text-tertiary cursor-pointer focus:outline-none"
-          >
-            <option value="client">Cliente (Ricardo)</option>
-            <option value="barber">Barbeiro (Victor)</option>
-            <option value="owner">Dono (Marcus)</option>
-          </select>
-        </div>
-      )}
-
       {/* --- TOP BAR --- */}
       <header className="fixed top-0 w-full z-40 flex justify-between items-center px-gutter h-16 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/20 lg:pl-72">
-        {/* Logo brand triggers backdoor click detection */}
-        <div onClick={handleLogoClick} className="flex items-center gap-sm cursor-pointer select-none">
+        {/* Logo brand */}
+        <div className="flex items-center gap-sm select-none">
           <div className="w-8 h-8 rounded-lg bg-tertiary flex items-center justify-center">
             <span className="material-symbols-outlined text-on-tertiary text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
               content_cut
@@ -226,7 +252,7 @@ export default function App() {
 
       {/* --- NAVIGATION DRAWER (Desktop) --- */}
       <aside className="hidden lg:flex h-screen w-64 fixed left-0 top-0 z-50 flex-col p-md space-y-base bg-surface-container-lowest border-r border-outline-variant/10 shadow-xl">
-        <div onClick={handleLogoClick} className="flex items-center gap-sm pb-lg border-b border-outline-variant/10 cursor-pointer select-none">
+        <div className="flex items-center gap-sm pb-lg border-b border-outline-variant/10 select-none">
           <div className="w-12 h-12 rounded-xl bg-tertiary flex items-center justify-center">
             <span className="material-symbols-outlined text-on-tertiary font-bold">content_cut</span>
           </div>
@@ -274,6 +300,15 @@ export default function App() {
               >
                 <span className="material-symbols-outlined">groups</span>
                 <span className="font-body-md">Comunidade</span>
+              </button>
+              <button 
+                onClick={() => setCurrentView("bolao")}
+                className={`w-full flex items-center gap-md px-md py-sm rounded-lg text-left transition-all ${
+                  currentView === "bolao" ? "bg-secondary-container text-tertiary font-bold" : "text-on-surface-variant hover:bg-surface-container-high"
+                }`}
+              >
+                <span className="material-symbols-outlined">sports_soccer</span>
+                <span className="font-body-md">Bolão</span>
               </button>
               <button 
                 onClick={() => setCurrentView("club_store")}
@@ -420,48 +455,57 @@ export default function App() {
           <>
             <button 
               onClick={() => setCurrentView("home")}
-              className={`flex flex-col items-center justify-center px-4 py-1 transition-all ${
+              className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
                 currentView === "home" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
               }`}
             >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "home" ? "'FILL' 1" : "'FILL' 0" }}>home</span>
-              <span className="font-label-sm text-label-sm">Home</span>
+              <span className="font-label-sm text-[10px]">Home</span>
             </button>
             <button 
               onClick={() => setCurrentView("schedule")}
-              className={`flex flex-col items-center justify-center px-4 py-1 transition-all ${
+              className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
                 currentView === "schedule" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
               }`}
             >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "schedule" ? "'FILL' 1" : "'FILL' 0" }}>calendar_today</span>
-              <span className="font-label-sm text-label-sm">Agenda</span>
+              <span className="font-label-sm text-[10px]">Agenda</span>
             </button>
             <button 
               onClick={() => setCurrentView("community")}
-              className={`flex flex-col items-center justify-center px-4 py-1 transition-all ${
+              className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
                 currentView === "community" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
               }`}
             >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "community" ? "'FILL' 1" : "'FILL' 0" }}>groups</span>
-              <span className="font-label-sm text-label-sm">Feed</span>
+              <span className="font-label-sm text-[10px]">Feed</span>
+            </button>
+            <button 
+              onClick={() => setCurrentView("bolao")}
+              className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
+                currentView === "bolao" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
+              }`}
+            >
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "bolao" ? "'FILL' 1" : "'FILL' 0" }}>sports_soccer</span>
+              <span className="font-label-sm text-[10px]">Bolão</span>
             </button>
             <button 
               onClick={() => setCurrentView("club_store")}
-              className={`flex flex-col items-center justify-center px-4 py-1 transition-all ${
+              className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
                 currentView === "club_store" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
               }`}
             >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "club_store" ? "'FILL' 1" : "'FILL' 0" }}>store</span>
-              <span className="font-label-sm text-label-sm">Loja</span>
+              <span className="font-label-sm text-[10px]">Loja</span>
             </button>
             <button 
               onClick={() => setCurrentView("plans")}
-              className={`flex flex-col items-center justify-center px-4 py-1 transition-all ${
+              className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
                 currentView === "plans" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
               }`}
             >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "plans" ? "'FILL' 1" : "'FILL' 0" }}>workspace_premium</span>
-              <span className="font-label-sm text-label-sm">Planos</span>
+              <span className="font-label-sm text-[10px]">Planos</span>
             </button>
           </>
         ) : currentUser.role === "barber" ? (

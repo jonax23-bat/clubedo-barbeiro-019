@@ -4,13 +4,13 @@ import { dbService } from "../firebase/dbService";
 export default function ClientProfile({ user, navigateTo, refreshUser }) {
   const [currentUser, setCurrentUser] = useState(user);
   const [clients, setClients] = useState([]);
-  const [activeTab, setActiveTab] = useState("my_profile"); // my_profile | manage_clients | manage_plans
+  const [planRequests, setPlanRequests] = useState([]);
+  const [activeTab, setActiveTab] = useState("my_profile"); // my_profile | manage_clients | manage_plans | plan_requests
   
   // My profile edit fields
   const [editName, setEditName] = useState("");
   const [editAvatar, setEditAvatar] = useState("");
   const [editEmail, setEditEmail] = useState("");
-  const [editPlan, setEditPlan] = useState("");
   const [isEditingSelf, setIsEditingSelf] = useState(false);
 
   // Client registration fields
@@ -57,6 +57,23 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
 
   useEffect(() => {
     loadData();
+
+    // Escuta alterações em tempo real dos clientes se Firebase real estiver ativo
+    let unsubscribe = null;
+    let unsubscribeRequests = null;
+    if (dbService.isRealFirebase()) {
+      unsubscribe = dbService.listenToClients((clientList) => {
+        setClients(clientList);
+      });
+      unsubscribeRequests = dbService.listenToPlanRequests((requestsList) => {
+        setPlanRequests(requestsList);
+      });
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+      if (unsubscribeRequests) unsubscribeRequests();
+    };
   }, [user]);
 
   const loadData = async () => {
@@ -66,10 +83,12 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
       setEditName(u.name || "");
       setEditAvatar(u.avatarUrl || "");
       setEditEmail(u.email || "");
-      setEditPlan(u.plan || "");
     }
     const allClients = await dbService.getClients();
     setClients(allClients);
+
+    const allRequests = await dbService.getPlanRequests();
+    setPlanRequests(allRequests);
 
     const configs = await dbService.getPlanConfigs();
     if (configs) {
@@ -186,8 +205,7 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
       await dbService.updateClient(currentUser.uid, {
         name: editName,
         avatarUrl: editAvatar,
-        email: editEmail,
-        plan: editPlan || null
+        email: editEmail
       });
       setIsEditingSelf(false);
       setMessage({ type: "success", text: "Perfil atualizado com sucesso!" });
@@ -413,6 +431,17 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
               <span className="absolute bottom-0 left-0 w-full h-[2px] bg-tertiary rounded-full animate-scale-in"></span>
             )}
           </button>
+          <button
+            onClick={() => { setActiveTab("plan_requests"); setMessage(null); }}
+            className={`pb-sm font-label-md text-label-md uppercase tracking-wider relative transition-all ${
+              activeTab === "plan_requests" ? "text-tertiary font-bold" : "text-outline hover:text-on-surface"
+            }`}
+          >
+            Solicitações de Planos ({planRequests.filter(r => r.status === "pending").length})
+            {activeTab === "plan_requests" && (
+              <span className="absolute bottom-0 left-0 w-full h-[2px] bg-tertiary rounded-full animate-scale-in"></span>
+            )}
+          </button>
         </div>
       )}
 
@@ -538,18 +567,10 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-label-sm text-on-surface-variant block">Plano de Assinatura (Simulação Sandbox)</label>
-                  <select 
-                    value={editPlan}
-                    onChange={(e) => setEditPlan(e.target.value)}
-                    disabled={!isEditingSelf}
-                    className="w-full bg-surface-container border border-outline-variant/30 rounded-lg p-md text-xs text-on-surface focus:outline-none focus:border-tertiary disabled:opacity-50"
-                  >
-                    <option value="">Nenhum Plano (Não assinante)</option>
-                    <option value="Plano Classic">Plano Classic (R$ 70/mês)</option>
-                    <option value="Plano VIP">Plano VIP (R$ 120/mês)</option>
-                    <option value="Plano Master">Plano Master (R$ 180/mês)</option>
-                  </select>
+                  <label className="text-label-sm text-on-surface-variant block font-semibold">Plano de Assinatura</label>
+                  <div className="w-full bg-surface-container/50 border border-outline-variant/30 rounded-lg p-md text-xs text-outline font-semibold select-none">
+                    {currentUser.plan ? `${currentUser.plan}` : "Nenhum Plano (Não assinante)"}
+                  </div>
                 </div>
 
                 {isEditingSelf && (
@@ -1062,6 +1083,90 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* TABA: SOLICITAÇÕES DE PLANOS PENDENTES (Apenas para Owner) */}
+      {isOwner && activeTab === "plan_requests" && (
+        <div className="space-y-md animate-scale-in">
+          <h3 className="font-headline-md text-headline-md text-on-surface">Solicitações de Planos Pendentes</h3>
+          <p className="text-xs text-on-surface-variant">
+            Abaixo estão as solicitações de planos enviadas pelos clientes. Valide se o pagamento foi efetuado antes de liberar o plano manualmente.
+          </p>
+
+          {planRequests.filter(req => req.status === "pending").length === 0 ? (
+            <div className="glass-card p-lg text-center border border-outline-variant/10 rounded-xl">
+              <span className="material-symbols-outlined text-4xl text-outline mb-sm">inbox</span>
+              <p className="text-on-surface-variant font-body-md">Nenhuma solicitação de plano pendente no momento.</p>
+            </div>
+          ) : (
+            <div className="glass-card rounded-xl overflow-hidden border border-outline-variant/10">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-surface-variant/50 text-label-sm uppercase font-bold text-on-surface-variant">
+                    <tr>
+                      <th className="p-md text-xs">Cliente</th>
+                      <th className="p-md text-xs">E-mail</th>
+                      <th className="p-md text-xs">Plano Solicitado</th>
+                      <th className="p-md text-xs">Valor</th>
+                      <th className="p-md text-xs">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant/10">
+                    {planRequests.filter(req => req.status === "pending").map((req) => (
+                      <tr key={req.id} className="hover:bg-surface-container/20 transition-colors">
+                        <td className="p-md text-xs font-semibold text-on-surface">{req.userName}</td>
+                        <td className="p-md text-xs font-mono text-on-surface-variant">{req.userEmail}</td>
+                        <td className="p-md text-xs">
+                          <span className="bg-tertiary/10 border border-tertiary/20 text-tertiary text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase">
+                            {req.planName}
+                          </span>
+                        </td>
+                        <td className="p-md text-xs font-mono font-bold text-on-surface">R$ {req.price}</td>
+                        <td className="p-md text-xs">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={async () => {
+                                setMessage(null);
+                                try {
+                                  await dbService.approvePlanSubscription(req.id);
+                                  setMessage({ type: "success", text: `Assinatura do plano ${req.planName} para ${req.userName} liberada com sucesso!` });
+                                  loadData();
+                                  if (refreshUser) refreshUser();
+                                } catch (err) {
+                                  setMessage({ type: "error", text: "Erro ao aprovar a solicitação." });
+                                }
+                              }}
+                              className="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg font-bold transition-all text-[11px] uppercase flex items-center gap-1 shadow"
+                            >
+                              <span className="material-symbols-outlined text-xs">check</span>
+                              Aprovar
+                            </button>
+                            <button
+                              onClick={async () => {
+                                setMessage(null);
+                                try {
+                                  await dbService.rejectPlanSubscription(req.id);
+                                  setMessage({ type: "success", text: `Solicitação do plano ${req.planName} para ${req.userName} recusada.` });
+                                  loadData();
+                                } catch (err) {
+                                  setMessage({ type: "error", text: "Erro ao recusar a solicitação." });
+                                }
+                              }}
+                              className="bg-error hover:bg-error/80 text-white px-3 py-1.5 rounded-lg font-bold transition-all text-[11px] uppercase flex items-center gap-1 shadow"
+                            >
+                              <span className="material-symbols-outlined text-xs">close</span>
+                              Recusar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

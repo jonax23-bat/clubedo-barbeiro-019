@@ -26,7 +26,7 @@ service cloud.firestore {
     // 1. Users collection
     match /users/{userId} {
       allow read: if signedIn();
-      allow create: if signedIn() && request.auth.uid == userId;
+      allow create: if signedIn() && (request.auth.uid == userId || isOwner());
       allow update: if signedIn() && (request.auth.uid == userId || isOwner());
       allow delete: if isOwner();
     }
@@ -162,6 +162,25 @@ service cloud.firestore {
     match /conversionHistory/{historyId} {
       allow read: if signedIn() && (isOwner() || resource.data.userUid == request.auth.uid);
       allow create: if signedIn() && (isOwner() || request.resource.data.userUid == request.auth.uid);
+      allow update, delete: if isOwner();
+    }
+
+    // 13. Configs collection
+    match /configs/{docId} {
+      allow read: if signedIn();
+      allow write: if isOwner();
+    }
+
+    // 14. Leaderboard collection
+    match /leaderboard/{userId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && (request.auth.uid == userId || isOwner());
+    }
+
+    // 15. Plan Requests collection
+    match /planRequests/{requestId} {
+      allow read: if signedIn() && (isOwner() || resource.data.userId == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isOwner();
     }
   }

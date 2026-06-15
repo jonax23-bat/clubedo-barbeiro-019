@@ -34,7 +34,7 @@ export default function Plans({ user, navigateTo, refreshUser }) {
     fetchConfigs();
   }, []);
 
-  // --- Função para Simular Assinatura ---
+  // --- Função para Solicitar Assinatura de Plano ---
   const handleSubscribe = async (planName, price, xpBonus) => {
     setLoadingPlan(planName);
     setSubscriptionSuccess(null);
@@ -43,19 +43,15 @@ export default function Plans({ user, navigateTo, refreshUser }) {
       // Simula uma chamada de API de 1.5s para processamento
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Credita bônus inicial de XP ao usuário por assinar um plano
-      await dbService.subscribeToPlan(user.uid, planName);
-      if (xpBonus > 0) {
-        await dbService.updateUserXP(user.uid, xpBonus, Math.floor(xpBonus / 10));
-      }
-      if (refreshUser) refreshUser();
+      // Envia a solicitação de plano pendente ao administrador
+      await dbService.requestPlanSubscription(user.uid, user.name, user.email, planName, price, xpBonus);
 
-      setSubscriptionSuccess(`Assinatura do ${planName} concluída! Você ganhou +${xpBonus} XP de boas-vindas!`);
+      setSubscriptionSuccess(`Solicitação de assinatura do ${planName} enviada! Aguardando confirmação do pagamento pelo administrador para liberação.`);
 
-      // Redireciona para a home depois de 2.5s para ver os novos dados
+      // Redireciona para a home depois de 3.5s
       setTimeout(() => {
         navigateTo("home");
-      }, 2500);
+      }, 3500);
 
     } catch (e) {
       console.error(e);

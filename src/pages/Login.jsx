@@ -71,12 +71,7 @@ export default function Login({ onLoginSuccess }) {
     }
   };
 
-  const handleQuickSelect = (emailVal, pwdVal) => {
-    setIsSignUp(false);
-    setLoginOrEmail(emailVal);
-    setPassword(pwdVal);
-    setError("");
-  };
+
 
   const toggleMode = () => {
     setIsSignUp(!isSignUp);
@@ -261,33 +256,6 @@ export default function Login({ onLoginSuccess }) {
           </button>
         </div>
 
-        {/* Credentials Helper Card (Dev/Demo convenience) */}
-        <div className="glass-card p-md rounded-xl border border-outline-variant/10 shadow-lg space-y-sm">
-          <p className="text-[10px] font-bold text-tertiary uppercase tracking-wider text-center flex items-center justify-center gap-1">
-            <span className="material-symbols-outlined text-sm">info</span>
-            Acesso Rápido de Testes (Clique para preencher)
-          </p>
-          <div className="grid grid-cols-3 gap-2 text-[10px]">
-            <button
-              onClick={() => handleQuickSelect("admin", "admin")}
-              className="p-2 rounded bg-surface-container hover:bg-tertiary/10 hover:text-tertiary border border-outline-variant/20 transition-all text-center text-on-surface-variant font-medium"
-            >
-              Dono (Admin)
-            </button>
-            <button
-              onClick={() => handleQuickSelect("victor.barber", "Club@2026")}
-              className="p-2 rounded bg-surface-container hover:bg-tertiary/10 hover:text-tertiary border border-outline-variant/20 transition-all text-center text-on-surface-variant font-medium"
-            >
-              Barbeiro (Victor)
-            </button>
-            <button
-              onClick={() => handleQuickSelect("ricardo@clubber.com.br", "Club@2026")}
-              className="p-2 rounded bg-surface-container hover:bg-tertiary/10 hover:text-tertiary border border-outline-variant/20 transition-all text-center text-on-surface-variant font-medium"
-            >
-              Cliente (Ricardo)
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
