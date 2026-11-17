@@ -7,6 +7,7 @@ export default function Login({ onLoginSuccess }) {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -15,13 +16,13 @@ export default function Login({ onLoginSuccess }) {
     setError("");
 
     if (isSignUp) {
-      if (!name.trim() || !email.trim() || !password) {
+      if (!name.trim() || !email.trim() || !phone.trim() || !password) {
         setError("Por favor, preencha todos os campos.");
         return;
       }
       setLoading(true);
       try {
-        const userObj = await dbService.register(name, email, password);
+        const userObj = await dbService.register(name, email, password, phone);
         onLoginSuccess(userObj);
       } catch (err) {
         if (err.message === "EMAIL_ALREADY_EXISTS") {
@@ -146,6 +147,26 @@ export default function Login({ onLoginSuccess }) {
                       placeholder="seu.email@exemplo.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      className="w-full bg-surface-container-lowest/80 border border-outline-variant/30 rounded-xl pl-10 pr-4 py-3 text-xs text-on-surface focus:outline-none focus:border-tertiary transition-all"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Sign Up: Telefone */}
+                <div className="space-y-xs">
+                  <label className="text-[10px] text-outline uppercase font-bold tracking-wider">
+                    Telefone / Celular
+                  </label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">
+                      call
+                    </span>
+                    <input
+                      type="tel"
+                      placeholder="(19) 99999-9999"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
                       className="w-full bg-surface-container-lowest/80 border border-outline-variant/30 rounded-xl pl-10 pr-4 py-3 text-xs text-on-surface focus:outline-none focus:border-tertiary transition-all"
                       required
                     />

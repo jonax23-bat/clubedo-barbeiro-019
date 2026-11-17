@@ -1,5 +1,6 @@
 const functions = require("firebase-functions");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const functionsV1 = require("firebase-functions/v1");
 const fetch = require("node-fetch");
 const admin = require("firebase-admin");
 
@@ -368,3 +369,83 @@ async function processGameResultServer(gameObj, realScoreHome, realScoreAway) {
     console.error(`[Scheduler] Erro ao processar resultado do jogo ${gameId}:`, e);
   }
 }
+
+/**
+ * Envia notificação push (FCM) sempre que uma nova notificação é criada no Firestore.
+ */
+exports.onNotificationCreated = functionsV1.firestore
+  .document("notifications/{id}")
+  .onCreate(async (snap, context) => {
+    const data = snap.data();
+    if (!data) return null;
+
+    const recipientUid = data.recipientUid;
+    const title = data.title || "Novo Alerta";
+    const body = data.body || "Você tem uma nova notificação.";
+
+    if (!recipientUid) {
+      console.log("[onNotificationCreated] Notificação sem recipientUid.");
+      return null;
+    }
+
+    try {
+      // 1. Busca o documento do usuário destinatário para ler os fcmTokens
+      const userSnap = await db.collection("users").doc(recipientUid).get();
+      if (!userSnap.exists) {
+        console.log(`[onNotificationCreated] Usuário ${recipientUid} não encontrado.`);
+        return null;
+      }
+
+      const userData = userSnap.data();
+      const tokens = userData.fcmTokens || [];
+
+      if (tokens.length === 0) {
+        console.log(`[onNotificationCreated] Usuário ${recipientUid} não possui fcmTokens registrados.`);
+        return null;
+      }
+
+      // 2. Prepara a mensagem FCM
+      const message = {
+        notification: {
+          title,
+          body
+        },
+        data: {
+          notifId: snap.id,
+          type: data.type || "general"
+        },
+        tokens: tokens
+      };
+
+      // 3. Envia a notificação
+      const response = await admin.messaging().sendEachForMulticast(message);
+      console.log(`[onNotificationCreated] Sucesso ao enviar para ${response.successCount} dispositivos. Falhas: ${response.failureCount}.`);
+
+      // 4. Limpa tokens inválidos/antigos se houverem falhas
+      if (response.failureCount > 0) {
+        const tokensToRemove = [];
+        response.responses.forEach((res, idx) => {
+          if (!res.success) {
+            const error = res.error;
+            if (error && (
+                error.code === 'messaging/invalid-registration-token' ||
+                error.code === 'messaging/registration-token-not-registered')) {
+              tokensToRemove.push(tokens[idx]);
+            }
+          }
+        });
+
+        if (tokensToRemove.length > 0) {
+          console.log(`[onNotificationCreated] Removendo ${tokensToRemove.length} tokens inválidos.`);
+          await db.collection("users").doc(recipientUid).update({
+            fcmTokens: admin.firestore.FieldValue.arrayRemove(...tokensToRemove)
+          });
+        }
+      }
+
+    } catch (err) {
+      console.error("[onNotificationCreated] Erro ao enviar notificação push:", err);
+    }
+
+    return null;
+  });

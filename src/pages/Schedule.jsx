@@ -40,11 +40,18 @@ export default function Schedule({ user, navigateTo, refreshUser }) {
         setSelectedService(sList.find(s => s.id === "cabelo_barba") || sList[0]);
       }
       if (uList.length > 0) {
-        setSelectedUnit(uList[0]);
+        // Se o cliente tem uma unidade vinculada, pré-seleciona ela
+        const clientUnitId = user?.unitId;
+        if (clientUnitId) {
+          const linkedUnit = uList.find(u => u.id === clientUnitId);
+          setSelectedUnit(linkedUnit || uList[0]);
+        } else {
+          setSelectedUnit(uList[0]);
+        }
       }
     };
     initData();
-  }, []);
+  }, [user]);
 
   // --- Efeito: Atualiza barbeiros disponíveis com base na unidade selecionada ---
   useEffect(() => {
@@ -280,26 +287,45 @@ export default function Schedule({ user, navigateTo, refreshUser }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
           {/* Seleção de Unidade */}
           <section className="space-y-4">
-            <h3 className="font-headline-md text-headline-md text-on-surface">2. Selecione a Unidade</h3>
+            <h3 className="font-headline-md text-headline-md text-on-surface">2. Sua Unidade</h3>
             <div className="space-y-sm">
-              {units.map(unit => {
-                const isSelected = selectedUnit?.id === unit.id;
-                return (
-                  <button
-                    key={unit.id}
-                    onClick={() => setSelectedUnit(unit)}
-                    className={`w-full glass-card p-sm rounded-xl flex items-center gap-sm text-left border border-outline-variant/20 hover:border-tertiary/40 transition-all ${
-                      isSelected ? "ring-2 ring-tertiary bg-tertiary/5 border-tertiary" : ""
-                    }`}
-                  >
-                    <img src={unit.logoUrl} alt={unit.name} className="w-12 h-12 object-cover rounded-lg" />
-                    <div>
-                      <h4 className="font-bold text-on-surface text-body-md">{unit.name}</h4>
-                      <p className="text-xs text-on-surface-variant truncate max-w-[280px]">{unit.address}</p>
+              {user?.unitId ? (
+                /* Cliente vinculado: mostra badge da unidade (locked) */
+                selectedUnit ? (
+                  <div className="w-full glass-card p-sm rounded-xl flex items-center gap-sm border border-tertiary/40 bg-tertiary/5 ring-2 ring-tertiary">
+                    {selectedUnit.logoUrl && (
+                      <img src={selectedUnit.logoUrl} alt={selectedUnit.name} className="w-12 h-12 object-cover rounded-lg" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-on-surface text-body-md">{selectedUnit.name}</h4>
+                      <p className="text-xs text-on-surface-variant truncate">{selectedUnit.address}</p>
                     </div>
-                  </button>
-                );
-              })}
+                    <span className="material-symbols-outlined text-tertiary text-sm flex-shrink-0" title="Sua unidade vinculada">verified</span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-on-surface-variant italic py-sm">Carregando unidade...</p>
+                )
+              ) : (
+                /* Admin/barbeiro ou cliente sem unidade: lista selecionável */
+                units.map(unit => {
+                  const isSelected = selectedUnit?.id === unit.id;
+                  return (
+                    <button
+                      key={unit.id}
+                      onClick={() => setSelectedUnit(unit)}
+                      className={`w-full glass-card p-sm rounded-xl flex items-center gap-sm text-left border border-outline-variant/20 hover:border-tertiary/40 transition-all ${
+                        isSelected ? "ring-2 ring-tertiary bg-tertiary/5 border-tertiary" : ""
+                      }`}
+                    >
+                      <img src={unit.logoUrl} alt={unit.name} className="w-12 h-12 object-cover rounded-lg" />
+                      <div>
+                        <h4 className="font-bold text-on-surface text-body-md">{unit.name}</h4>
+                        <p className="text-xs text-on-surface-variant truncate max-w-[280px]">{unit.address}</p>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </section>
 
@@ -454,58 +480,98 @@ export default function Schedule({ user, navigateTo, refreshUser }) {
           </div>
         )}
 
-        {/* Resumo Final da Seleção */}
+        {/* Resumo Final da Seleção (Modal Overlay) */}
         {selectedSlot && selectedUnit && selectedBarber && (
-          <section className="glass-card p-md rounded-2xl space-y-4 border-tertiary/20 relative overflow-hidden animate-scale-in">
-            <div className="absolute top-0 right-0 p-gutter">
-              <span className="material-symbols-outlined text-tertiary/10 text-6xl rotate-12 select-none pointer-events-none">
-                event_available
-              </span>
-            </div>
-            
-            <div className="relative z-10">
-              <h4 className="font-label-md text-tertiary uppercase mb-2">Resumo da Seleção</h4>
-              <div className="space-y-1">
-                <p className="font-headline-md text-on-surface">{selectedService.name}</p>
-                <p className="font-body-md text-on-surface-variant">
-                  {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })} às{" "}
-                  <span className="text-on-surface font-bold">
-                    {selectedSlot.time}
-                  </span>
-                </p>
-                <p className="text-xs text-on-surface-variant">
-                  Unidade: <strong>{selectedUnit.name}</strong> | Profissional: <strong>{selectedBarber.name}</strong>
-                </p>
-                <p className="text-sm text-tertiary font-bold pt-xs">
-                  Valor: R$ {selectedService.price} | Ganho Estimado: +{selectedService.xp + selectedSlot.xpBonus} XP
+          <div className="fixed inset-0 z-50 bg-[#0a0a0c]/85 backdrop-blur-md flex items-center justify-center p-gutter animate-fade-in text-on-surface">
+            <div className="w-full max-w-md bg-surface-container border border-outline-variant/30 rounded-2xl p-lg shadow-2xl space-y-md text-center relative overflow-hidden">
+              {/* Ambient gold glow background */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-tertiary/10 rounded-full blur-2xl pointer-events-none" />
+              
+              {/* Icon */}
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-tertiary/10 border border-tertiary/20 text-tertiary shadow-lg shadow-tertiary/5 mb-xs">
+                <span className="material-symbols-outlined text-3xl">event_available</span>
+              </div>
+
+              <div className="space-y-xs">
+                <h3 className="font-headline-md text-headline-sm text-on-surface">Confirmar Agendamento</h3>
+                <p className="text-xs text-outline uppercase font-bold tracking-widest text-[10px]">
+                  Revise os detalhes da sua reserva
                 </p>
               </div>
-              
-              <div className="flex flex-col sm:flex-row gap-4 mt-6">
+
+              {/* Details Card */}
+              <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-md text-left space-y-sm">
+                <div className="flex justify-between items-baseline border-b border-outline-variant/10 pb-xs">
+                  <span className="text-xs text-on-surface-variant font-medium">Serviço</span>
+                  <span className="text-xs font-bold text-on-surface truncate max-w-[200px]">{selectedService.name}</span>
+                </div>
+                <div className="flex justify-between items-baseline border-b border-outline-variant/10 pb-xs">
+                  <span className="text-xs text-on-surface-variant font-medium">Profissional</span>
+                  <span className="text-xs font-bold text-on-surface">{selectedBarber.name}</span>
+                </div>
+                <div className="flex justify-between items-baseline border-b border-outline-variant/10 pb-xs">
+                  <span className="text-xs text-on-surface-variant font-medium">Unidade</span>
+                  <span className="text-xs font-bold text-on-surface">{selectedUnit.name}</span>
+                </div>
+                <div className="flex justify-between items-baseline border-b border-outline-variant/10 pb-xs">
+                  <span className="text-xs text-on-surface-variant font-medium">Data</span>
+                  <span className="text-xs font-bold text-on-surface">
+                    {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-baseline border-b border-outline-variant/10 pb-xs">
+                  <span className="text-xs text-on-surface-variant font-medium">Horário</span>
+                  <span className="text-sm font-bold text-tertiary">{selectedSlot.time}</span>
+                </div>
+                <div className="flex justify-between items-baseline">
+                  <span className="text-xs text-on-surface-variant font-medium">Valor / Recompensa</span>
+                  <span className="text-xs font-bold text-tertiary">
+                    R$ {selectedService.price} | +{selectedService.xp + selectedSlot.xpBonus} XP
+                  </span>
+                </div>
+              </div>
+
+              {/* Feedback Notificação */}
+              {message && (
+                <div className={`p-sm rounded-xl border flex items-center gap-xs text-xs font-semibold text-left ${
+                  message.type === "success" 
+                    ? "bg-green-500/10 border-green-500/30 text-green-400" 
+                    : "bg-error-container/20 border-error/20 text-error"
+                }`}>
+                  <span className="material-symbols-outlined text-sm shrink-0">
+                    {message.type === "success" ? "check_circle" : "error"}
+                  </span>
+                  <span>{message.text}</span>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="space-y-sm pt-sm">
                 <button
                   onClick={handleConfirm}
                   disabled={loading}
-                  className="flex-1 bg-tertiary text-on-tertiary font-bold py-4 px-8 rounded-xl hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-tertiary/30 uppercase tracking-widest font-label-md disabled:opacity-50 flex items-center justify-center gap-xs"
+                  className="w-full bg-tertiary text-on-tertiary font-bold py-3.5 rounded-xl hover:brightness-110 active:scale-98 transition-all shadow-lg shadow-tertiary/20 uppercase tracking-widest font-label-md text-xs flex items-center justify-center gap-xs"
                 >
                   {loading ? (
                     <>
-                      <span className="material-symbols-outlined animate-spin">sync</span>
-                      Processando...
+                      <span className="material-symbols-outlined animate-spin text-sm">sync</span>
+                      Confirmando...
                     </>
                   ) : (
                     "Confirmar Agendamento"
                   )}
                 </button>
-                
-                <button 
-                  onClick={() => navigateTo("home")}
-                  className="flex-1 border border-outline-variant text-on-surface font-bold py-4 px-8 rounded-xl hover:bg-surface-variant active:scale-95 transition-all uppercase tracking-widest font-label-md"
+
+                <button
+                  onClick={() => setSelectedSlot(null)}
+                  disabled={loading}
+                  className="w-full text-center text-xs text-outline hover:text-on-surface py-2 font-medium transition-colors"
                 >
-                  Cancelar
+                  Voltar e Alterar
                 </button>
               </div>
             </div>
-          </section>
+          </div>
         )}
 
       </div>

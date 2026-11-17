@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { dbService } from "./firebase/dbService";
+import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
+import { getToken, onMessage } from "firebase/messaging";
+import { db, messaging } from "./firebase/config";
 
 // Importa todas as páginas do aplicativo
 import Home from "./pages/Home";
@@ -17,18 +20,39 @@ import ManageStore from "./pages/ManageStore";
 import ManageLeagues from "./pages/ManageLeagues";
 import ClientProfile from "./pages/ClientProfile";
 import Login from "./pages/Login";
+import OwnerBarberView from "./pages/OwnerBarberView";
+import SelectUnit from "./pages/SelectUnit";
+import MyAppointments from "./pages/MyAppointments";
 
 export default function App() {
   // --- Estados Globais ---
   const [currentUser, setCurrentUser] = useState(null);
   const [currentView, setCurrentView] = useState("home"); // home | schedule | plans | community | barber_profile | manage_team | shop_branding
   const [authLoading, setAuthLoading] = useState(true);
-  const [brandingName, setBrandingName] = useState("Clubber Barbershop");
+  const [brandingName, setBrandingName] = useState("AliJoy Studio");
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [modalPhone, setModalPhone] = useState("");
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalError, setModalError] = useState("");
+
+  // --- Estados de Notificação ---
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [userUnit, setUserUnit] = useState(null);
 
   // --- Inicializa o Banco de Dados local/mock ---
   useEffect(() => {
     dbService.init();
+
+    // Carrega o branding configurado da barbearia
+    const loadBranding = async () => {
+      const data = await dbService.getBranding();
+      if (data && data.name) {
+        setBrandingName(data.name);
+      }
+    };
+    loadBranding();
     
     // Restaura sessão local imediatamente para evitar flash de tela de login
     const savedUser = localStorage.getItem("clubber_current_user");
@@ -38,11 +62,16 @@ export default function App() {
         setCurrentUser(parsed);
         // Set appropriate initial view based on role
         if (parsed.role === "client") {
-          setCurrentView("home");
+          // Se o cliente ainda não escolheu uma unidade, mostra a tela de seleção
+          if (!parsed.unitId) {
+            setCurrentView("select_unit");
+          } else {
+            setCurrentView("home");
+          }
         } else if (parsed.role === "barber") {
           setCurrentView("barber_profile");
         } else if (parsed.role === "owner") {
-          setCurrentView("manage_team");
+          setCurrentView("owner_barber_view");
         }
       } catch (e) {
         console.error("Failed to parse saved user", e);
@@ -61,6 +90,10 @@ export default function App() {
           if (dbUser) {
             setCurrentUser(dbUser);
             localStorage.setItem("clubber_current_user", JSON.stringify(dbUser));
+            // Se cliente sem unitId, redireciona para seleção
+            if (dbUser.role === "client" && !dbUser.unitId) {
+              setCurrentView("select_unit");
+            }
           } else {
             // Se o usuário está no Firebase Auth mas não tem documento no Firestore:
             // Caso já exista um currentUser carregado no state (por exemplo, que acabou de ser setado pelo Login.jsx),
@@ -115,6 +148,133 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // --- Carregador e Listener de Notificações ---
+  const loadUserNotifications = async () => {
+    if (!currentUser) return;
+    try {
+      const list = await dbService.getNotifications(currentUser.uid);
+      setNotifications(list);
+      setUnreadCount(list.filter(n => !n.read).length);
+    } catch (e) {
+      console.error("Erro ao carregar notificações:", e);
+    }
+  };
+
+  const requestPushPermission = async (userUid) => {
+    try {
+      if (!messaging) {
+        console.log("[FCM] Mensagens em segundo plano não suportadas ou não inicializadas.");
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        console.log("[FCM] Permissão de notificação concedida.");
+        const vapid = import.meta.env.VITE_FCM_VAPID_KEY || undefined;
+        const token = await getToken(messaging, { vapidKey: vapid });
+        if (token) {
+          console.log("[FCM] Token de registro recebido:", token);
+          await dbService.saveFcmToken(userUid, token);
+        }
+      }
+    } catch (e) {
+      console.warn("[FCM] Erro ao registrar notificações push:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (!currentUser) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    loadUserNotifications();
+    requestPushPermission(currentUser.uid);
+
+    // Registra listener em primeiro plano (foreground message)
+    let unsubscribeMessage = null;
+    if (messaging) {
+      try {
+        unsubscribeMessage = onMessage(messaging, (payload) => {
+          console.log("[FCM] Mensagem em primeiro plano recebida:", payload);
+          loadUserNotifications();
+        });
+      } catch (err) {
+        console.warn("[FCM] Erro ao registrar onMessage listener:", err);
+      }
+    }
+
+    // Listener de notificações In-App no Firestore
+    let unsubscribeFirestore = null;
+    if (dbService.isRealFirebase()) {
+      try {
+        const q = query(
+          collection(db, "notifications"),
+          where("recipientUid", "==", currentUser.uid)
+        );
+        unsubscribeFirestore = onSnapshot(q, (snapshot) => {
+          const list = [];
+          snapshot.forEach(docSnap => {
+            list.push({ id: docSnap.id, ...docSnap.data() });
+          });
+          list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+          setNotifications(list);
+          setUnreadCount(list.filter(n => !n.read).length);
+        }, (err) => {
+          console.warn("Erro no listener de notificações do Firestore:", err);
+        });
+      } catch (e) {
+        console.warn("Erro ao configurar snapshot de notificações:", e);
+      }
+    } else {
+      // Modo Mock: polling a cada 5 segundos
+      const interval = setInterval(loadUserNotifications, 5000);
+      return () => {
+        clearInterval(interval);
+        if (unsubscribeMessage) unsubscribeMessage();
+      };
+    }
+
+    return () => {
+      if (unsubscribeMessage) unsubscribeMessage();
+      if (unsubscribeFirestore) unsubscribeFirestore();
+    };
+  }, [currentUser]);
+
+  // --- Limpa serviços órfãos se o usuário logado for o dono ---
+  useEffect(() => {
+    if (currentUser && currentUser.role === "owner") {
+      dbService.cleanupOrphanServices();
+    }
+  }, [currentUser]);
+
+  // --- Carrega unidade do usuário cliente e trata restrição de telas ---
+  useEffect(() => {
+    const loadUserUnit = async () => {
+      if (currentUser && currentUser.role === "client" && currentUser.unitId) {
+        try {
+          const units = await dbService.getUnits();
+          const unit = units.find(u => u.id === currentUser.unitId);
+          setUserUnit(unit || null);
+        } catch (e) {
+          console.warn("Erro ao carregar unidade:", e);
+        }
+      } else {
+        setUserUnit(null);
+      }
+    };
+    loadUserUnit();
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser && currentUser.role === "client" && userUnit && userUnit.hidePlans) {
+      const restrictedViews = ["home", "plans", "community", "bolao", "club_store"];
+      if (restrictedViews.includes(currentView)) {
+        setCurrentView("schedule");
+      }
+    }
+  }, [currentUser, userUnit, currentView]);
+
   // --- Atualiza os dados do usuário atual a partir do Banco de Dados ---
   const refreshUser = async () => {
     if (!currentUser) return;
@@ -131,12 +291,23 @@ export default function App() {
     
     // Determine view on login
     if (userObj.role === "client") {
-      setCurrentView("home");
+      // Se o cliente ainda não escolheu uma unidade, vai para a tela de seleção
+      if (!userObj.unitId) {
+        setCurrentView("select_unit");
+      } else {
+        setCurrentView("home");
+      }
     } else if (userObj.role === "barber") {
       setCurrentView("barber_profile");
     } else if (userObj.role === "owner") {
-      setCurrentView("manage_team");
+      setCurrentView("owner_barber_view");
     }
+  };
+
+  const handleUnitSelected = (updatedUser, unit) => {
+    setCurrentUser(updatedUser);
+    localStorage.setItem("clubber_current_user", JSON.stringify(updatedUser));
+    setCurrentView("home");
   };
 
   const handleLogout = async () => {
@@ -151,12 +322,14 @@ export default function App() {
   const renderView = () => {
     if (!currentUser) return null;
     switch (currentView) {
+      case "select_unit":
+        return <SelectUnit user={currentUser} onUnitSelected={handleUnitSelected} />;
       case "home":
         return <Home user={currentUser} navigateTo={setCurrentView} refreshUser={refreshUser} />;
       case "schedule":
         return <Schedule user={currentUser} navigateTo={setCurrentView} refreshUser={refreshUser} />;
       case "plans":
-        return <Plans user={currentUser} navigateTo={setCurrentView} refreshUser={refreshUser} />;
+        return <Plans user={currentUser} navigateTo={setCurrentView} refreshUser={refreshUser} unitId={currentUser.unitId} />;
       case "community":
         return <Community user={currentUser} navigateTo={setCurrentView} refreshUser={refreshUser} />;
       case "bolao":
@@ -180,7 +353,11 @@ export default function App() {
       case "manage_leagues":
         return <ManageLeagues />;
       case "client_profile":
-        return <ClientProfile user={currentUser} navigateTo={setCurrentView} refreshUser={refreshUser} />;
+        return <ClientProfile user={currentUser} navigateTo={setCurrentView} refreshUser={refreshUser} onRequestChangeUnit={() => setCurrentView("select_unit")} />;
+      case "owner_barber_view":
+        return <OwnerBarberView user={currentUser} navigateTo={setCurrentView} />;
+      case "my_appointments":
+        return <MyAppointments user={currentUser} navigateTo={setCurrentView} refreshUser={refreshUser} />;
       default:
         return <Home user={currentUser} navigateTo={setCurrentView} refreshUser={refreshUser} />;
     }
@@ -240,6 +417,118 @@ export default function App() {
           >
             <img src={currentUser.avatarUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuCFzgQt41z6XWB871q-TOpFiLt3YHzoRlzQ4bOYop4zNuWOqRkRI7fCcxjriIhF9hzE1XQWzmmeqxpeDfFsvZOfDuT3dxzUo_e0vkrj_Ajnei_CyF06Du8iu_stErqozb0p7kv7-tLO9UzSkqy9PZ7sLC-_cG3Y-t79n46M99T-AqCxOoKzAHr25DGZxBi1d8ScA_SXxWSmv1vvlfIyCQ8lWWidOmepLCla6zysF_2zaZ8_MxBRLuMUxr-snR19WILHaBErw5ZvRfyb"} alt={currentUser.name} className="w-full h-full object-cover" />
           </div>
+
+          {/* Sino de Notificações */}
+          <div className="relative">
+            <button 
+              onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+              className={`w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition-colors relative ${
+                showNotifDropdown ? "text-tertiary bg-surface-container-high" : "text-outline"
+              }`}
+              title="Notificações"
+            >
+              <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: unreadCount > 0 ? "'FILL' 1" : "'FILL' 0" }}>
+                notifications
+              </span>
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 bg-error text-on-error rounded-full flex items-center justify-center text-[9px] font-bold">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Dropdown de Notificações */}
+            {showNotifDropdown && (
+              <div className="absolute right-0 mt-2 w-80 glass-card rounded-2xl border border-outline-variant/30 shadow-2xl p-sm space-y-sm z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="flex justify-between items-center px-xs pb-xs border-b border-outline-variant/10">
+                  <h4 className="font-bold text-xs text-on-surface flex items-center gap-xs">
+                    <span className="material-symbols-outlined text-xs text-tertiary">notifications</span>
+                    Notificações
+                  </h4>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await dbService.markAllNotificationsAsRead(currentUser.uid);
+                        loadUserNotifications();
+                      }}
+                      className="text-[9px] text-tertiary font-bold hover:underline"
+                    >
+                      Lidas
+                    </button>
+                    <span className="text-[9px] text-outline">•</span>
+                    <button 
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await dbService.clearAllNotifications(currentUser.uid);
+                        loadUserNotifications();
+                      }}
+                      className="text-[9px] text-error font-bold hover:underline"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+
+                <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-xs">
+                  {notifications.length === 0 ? (
+                    <div className="py-md text-center text-outline text-xs italic">
+                      Nenhuma notificação por aqui.
+                    </div>
+                  ) : (
+                    notifications.map((notif) => {
+                      let icon = "info";
+                      let iconColor = "text-blue-400";
+                      if (notif.type === "booking_created") {
+                        icon = "calendar_month";
+                        iconColor = "text-emerald-400";
+                      } else if (notif.type === "booking_cancelled") {
+                        icon = "cancel";
+                        iconColor = "text-red-400";
+                      } else if (notif.type === "presence_confirmed") {
+                        icon = "stars";
+                        iconColor = "text-amber-400";
+                      }
+
+                      return (
+                        <div 
+                          key={notif.id}
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!notif.read) {
+                              await dbService.markNotificationAsRead(notif.id);
+                              loadUserNotifications();
+                            }
+                          }}
+                          className={`p-xs rounded-xl border transition-all cursor-pointer flex gap-sm items-start text-left ${
+                            notif.read 
+                              ? "bg-surface-variant/20 border-transparent opacity-70" 
+                              : "bg-surface-container-high border-outline-variant/20 hover:border-tertiary/30"
+                          }`}
+                        >
+                          <span className={`material-symbols-outlined text-sm shrink-0 mt-0.5 ${iconColor}`}>
+                            {icon}
+                          </span>
+                          <div className="min-w-0 flex-1 space-y-[2px]">
+                            <h5 className={`text-xs leading-tight font-bold ${notif.read ? "text-on-surface-variant" : "text-on-surface"}`}>
+                              {notif.title}
+                            </h5>
+                            <p className="text-[10px] text-on-surface-variant leading-normal break-words">
+                              {notif.body}
+                            </p>
+                            <span className="text-[8px] text-outline block">
+                              {new Date(notif.createdAt).toLocaleTimeString("pt-BR", {hour: "2-digit", minute: "2-digit"})} - {new Date(notif.createdAt).toLocaleDateString("pt-BR", {day: "numeric", month: "short"})}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <button 
             onClick={handleLogout}
             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-error/15 text-outline hover:text-error transition-colors"
@@ -265,15 +554,17 @@ export default function App() {
         <nav className="flex-1 space-y-base pt-md overflow-y-auto hide-scrollbar">
           {currentUser.role === "client" && (
             <>
-              <button 
-                onClick={() => setCurrentView("home")}
-                className={`w-full flex items-center gap-md px-md py-sm rounded-lg text-left transition-all ${
-                  currentView === "home" ? "bg-secondary-container text-tertiary font-bold" : "text-on-surface-variant hover:bg-surface-container-high"
-                }`}
-              >
-                <span className="material-symbols-outlined">home</span>
-                <span className="font-body-md">Home</span>
-              </button>
+              {(!userUnit || !userUnit.hidePlans) && (
+                <button 
+                  onClick={() => setCurrentView("home")}
+                  className={`w-full flex items-center gap-md px-md py-sm rounded-lg text-left transition-all ${
+                    currentView === "home" ? "bg-secondary-container text-tertiary font-bold" : "text-on-surface-variant hover:bg-surface-container-high"
+                  }`}
+                >
+                  <span className="material-symbols-outlined">home</span>
+                  <span className="font-body-md">Home</span>
+                </button>
+              )}
               <button 
                 onClick={() => setCurrentView("schedule")}
                 className={`w-full flex items-center gap-md px-md py-sm rounded-lg text-left transition-all ${
@@ -284,41 +575,54 @@ export default function App() {
                 <span className="font-body-md">Agendar</span>
               </button>
               <button 
-                onClick={() => setCurrentView("plans")}
+                onClick={() => setCurrentView("my_appointments")}
                 className={`w-full flex items-center gap-md px-md py-sm rounded-lg text-left transition-all ${
-                  currentView === "plans" ? "bg-secondary-container text-tertiary font-bold" : "text-on-surface-variant hover:bg-surface-container-high"
+                  currentView === "my_appointments" ? "bg-secondary-container text-tertiary font-bold" : "text-on-surface-variant hover:bg-surface-container-high"
                 }`}
               >
-                <span className="material-symbols-outlined">workspace_premium</span>
-                <span className="font-body-md">Planos</span>
+                <span className="material-symbols-outlined">content_paste</span>
+                <span className="font-body-md">Meus Agendamentos</span>
               </button>
-              <button 
-                onClick={() => setCurrentView("community")}
-                className={`w-full flex items-center gap-md px-md py-sm rounded-lg text-left transition-all ${
-                  currentView === "community" ? "bg-secondary-container text-tertiary font-bold" : "text-on-surface-variant hover:bg-surface-container-high"
-                }`}
-              >
-                <span className="material-symbols-outlined">groups</span>
-                <span className="font-body-md">Comunidade</span>
-              </button>
-              <button 
-                onClick={() => setCurrentView("bolao")}
-                className={`w-full flex items-center gap-md px-md py-sm rounded-lg text-left transition-all ${
-                  currentView === "bolao" ? "bg-secondary-container text-tertiary font-bold" : "text-on-surface-variant hover:bg-surface-container-high"
-                }`}
-              >
-                <span className="material-symbols-outlined">sports_soccer</span>
-                <span className="font-body-md">Bolão</span>
-              </button>
-              <button 
-                onClick={() => setCurrentView("club_store")}
-                className={`w-full flex items-center gap-md px-md py-sm rounded-lg text-left transition-all ${
-                  currentView === "club_store" ? "bg-secondary-container text-tertiary font-bold" : "text-on-surface-variant hover:bg-surface-container-high"
-                }`}
-              >
-                <span className="material-symbols-outlined">store</span>
-                <span className="font-body-md">Loja do Clube</span>
-              </button>
+              {(!userUnit || !userUnit.hidePlans) && (
+                <>
+                  <button 
+                    onClick={() => setCurrentView("plans")}
+                    className={`w-full flex items-center gap-md px-md py-sm rounded-lg text-left transition-all ${
+                      currentView === "plans" ? "bg-secondary-container text-tertiary font-bold" : "text-on-surface-variant hover:bg-surface-container-high"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined">workspace_premium</span>
+                    <span className="font-body-md">Planos</span>
+                  </button>
+                  <button 
+                    onClick={() => setCurrentView("community")}
+                    className={`w-full flex items-center gap-md px-md py-sm rounded-lg text-left transition-all ${
+                      currentView === "community" ? "bg-secondary-container text-tertiary font-bold" : "text-on-surface-variant hover:bg-surface-container-high"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined">groups</span>
+                    <span className="font-body-md">Comunidade</span>
+                  </button>
+                  <button 
+                    onClick={() => setCurrentView("bolao")}
+                    className={`w-full flex items-center gap-md px-md py-sm rounded-lg text-left transition-all ${
+                      currentView === "bolao" ? "bg-secondary-container text-tertiary font-bold" : "text-on-surface-variant hover:bg-surface-container-high"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined">sports_soccer</span>
+                    <span className="font-body-md">Bolão</span>
+                  </button>
+                  <button 
+                    onClick={() => setCurrentView("club_store")}
+                    className={`w-full flex items-center gap-md px-md py-sm rounded-lg text-left transition-all ${
+                      currentView === "club_store" ? "bg-secondary-container text-tertiary font-bold" : "text-on-surface-variant hover:bg-surface-container-high"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined">store</span>
+                    <span className="font-body-md">Loja do Clube</span>
+                  </button>
+                </>
+              )}
               <button 
                 onClick={() => setCurrentView("client_profile")}
                 className={`w-full flex items-center gap-md px-md py-sm rounded-lg text-left transition-all ${
@@ -341,6 +645,15 @@ export default function App() {
               >
                 <span className="material-symbols-outlined">person</span>
                 <span className="font-body-md">Meu Perfil</span>
+              </button>
+              <button 
+                onClick={() => setCurrentView("my_appointments")}
+                className={`w-full flex items-center gap-md px-md py-sm rounded-lg text-left transition-all ${
+                  currentView === "my_appointments" ? "bg-secondary-container text-tertiary font-bold" : "text-on-surface-variant hover:bg-surface-container-high"
+                }`}
+              >
+                <span className="material-symbols-outlined">content_paste</span>
+                <span className="font-body-md">Meus Atendimentos</span>
               </button>
               <button 
                 onClick={() => setCurrentView("schedule")}
@@ -373,6 +686,15 @@ export default function App() {
               >
                 <span className="material-symbols-outlined">group</span>
                 <span className="font-body-md">Gestão de Equipe</span>
+              </button>
+              <button 
+                onClick={() => setCurrentView("owner_barber_view")}
+                className={`w-full flex items-center gap-md px-md py-sm rounded-lg text-left transition-all ${
+                  currentView === "owner_barber_view" ? "bg-secondary-container text-tertiary font-bold" : "text-on-surface-variant hover:bg-surface-container-high"
+                }`}
+              >
+                <span className="material-symbols-outlined">event_note</span>
+                <span className="font-body-md">Agenda dos Barbeiros</span>
               </button>
               <button 
                 onClick={() => setCurrentView("client_profile")}
@@ -453,15 +775,17 @@ export default function App() {
       <nav className="fixed bottom-0 left-0 w-full z-40 flex justify-around items-center px-base pb-safe h-20 bg-surface/90 backdrop-blur-xl border-t border-outline-variant/30 shadow-lg lg:hidden">
         {currentUser.role === "client" ? (
           <>
-            <button 
-              onClick={() => setCurrentView("home")}
-              className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
-                currentView === "home" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
-              }`}
-            >
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "home" ? "'FILL' 1" : "'FILL' 0" }}>home</span>
-              <span className="font-label-sm text-[10px]">Home</span>
-            </button>
+            {(!userUnit || !userUnit.hidePlans) && (
+              <button 
+                onClick={() => setCurrentView("home")}
+                className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
+                  currentView === "home" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
+                }`}
+              >
+                <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "home" ? "'FILL' 1" : "'FILL' 0" }}>home</span>
+                <span className="font-label-sm text-[10px]">Home</span>
+              </button>
+            )}
             <button 
               onClick={() => setCurrentView("schedule")}
               className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
@@ -472,41 +796,54 @@ export default function App() {
               <span className="font-label-sm text-[10px]">Agenda</span>
             </button>
             <button 
-              onClick={() => setCurrentView("community")}
+              onClick={() => setCurrentView("my_appointments")}
               className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
-                currentView === "community" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
+                currentView === "my_appointments" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
               }`}
             >
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "community" ? "'FILL' 1" : "'FILL' 0" }}>groups</span>
-              <span className="font-label-sm text-[10px]">Feed</span>
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "my_appointments" ? "'FILL' 1" : "'FILL' 0" }}>content_paste</span>
+              <span className="font-label-sm text-[10px]">Meus Agends</span>
             </button>
-            <button 
-              onClick={() => setCurrentView("bolao")}
-              className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
-                currentView === "bolao" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
-              }`}
-            >
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "bolao" ? "'FILL' 1" : "'FILL' 0" }}>sports_soccer</span>
-              <span className="font-label-sm text-[10px]">Bolão</span>
-            </button>
-            <button 
-              onClick={() => setCurrentView("club_store")}
-              className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
-                currentView === "club_store" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
-              }`}
-            >
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "club_store" ? "'FILL' 1" : "'FILL' 0" }}>store</span>
-              <span className="font-label-sm text-[10px]">Loja</span>
-            </button>
-            <button 
-              onClick={() => setCurrentView("plans")}
-              className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
-                currentView === "plans" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
-              }`}
-            >
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "plans" ? "'FILL' 1" : "'FILL' 0" }}>workspace_premium</span>
-              <span className="font-label-sm text-[10px]">Planos</span>
-            </button>
+            {(!userUnit || !userUnit.hidePlans) && (
+              <>
+                <button 
+                  onClick={() => setCurrentView("community")}
+                  className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
+                    currentView === "community" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
+                  }`}
+                >
+                  <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "community" ? "'FILL' 1" : "'FILL' 0" }}>groups</span>
+                  <span className="font-label-sm text-[10px]">Feed</span>
+                </button>
+                <button 
+                  onClick={() => setCurrentView("bolao")}
+                  className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
+                    currentView === "bolao" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
+                  }`}
+                >
+                  <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "bolao" ? "'FILL' 1" : "'FILL' 0" }}>sports_soccer</span>
+                  <span className="font-label-sm text-[10px]">Bolão</span>
+                </button>
+                <button 
+                  onClick={() => setCurrentView("club_store")}
+                  className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
+                    currentView === "club_store" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
+                  }`}
+                >
+                  <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "club_store" ? "'FILL' 1" : "'FILL' 0" }}>store</span>
+                  <span className="font-label-sm text-[10px]">Loja</span>
+                </button>
+                <button 
+                  onClick={() => setCurrentView("plans")}
+                  className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
+                    currentView === "plans" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
+                  }`}
+                >
+                  <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "plans" ? "'FILL' 1" : "'FILL' 0" }}>workspace_premium</span>
+                  <span className="font-label-sm text-[10px]">Planos</span>
+                </button>
+              </>
+            )}
           </>
         ) : currentUser.role === "barber" ? (
           <>
@@ -518,6 +855,15 @@ export default function App() {
             >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "barber_profile" ? "'FILL' 1" : "'FILL' 0" }}>person</span>
               <span className="font-label-sm text-label-sm">Perfil</span>
+            </button>
+            <button 
+              onClick={() => setCurrentView("my_appointments")}
+              className={`flex flex-col items-center justify-center px-4 py-1 transition-all ${
+                currentView === "my_appointments" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
+              }`}
+            >
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "my_appointments" ? "'FILL' 1" : "'FILL' 0" }}>content_paste</span>
+              <span className="font-label-sm text-label-sm">Atendimentos</span>
             </button>
             <button 
               onClick={() => setCurrentView("schedule")}
@@ -541,13 +887,13 @@ export default function App() {
         ) : (
           <>
             <button 
-              onClick={() => setCurrentView("manage_team")}
+              onClick={() => setCurrentView("owner_barber_view")}
               className={`flex flex-col items-center justify-center px-2 py-1 transition-all ${
-                currentView === "manage_team" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
+                currentView === "owner_barber_view" ? "bg-tertiary-container text-tertiary rounded-full scale-95" : "text-outline hover:text-tertiary"
               }`}
             >
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "manage_team" ? "'FILL' 1" : "'FILL' 0" }}>group</span>
-              <span className="font-label-sm text-[10px]">Equipe</span>
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: currentView === "owner_barber_view" ? "'FILL' 1" : "'FILL' 0" }}>event_note</span>
+              <span className="font-label-sm text-[10px]">Agenda</span>
             </button>
             <button 
               onClick={() => setCurrentView("client_profile")}
@@ -620,6 +966,18 @@ export default function App() {
             
             <div className="grid grid-cols-2 gap-sm">
               <button
+                onClick={() => { setCurrentView("manage_team"); setShowMoreMenu(false); }}
+                className={`flex items-center gap-sm p-sm rounded-lg border text-left transition-all ${
+                  currentView === "manage_team" 
+                    ? "bg-tertiary-container border-tertiary/30 text-tertiary" 
+                    : "bg-surface border-outline-variant/20 text-on-surface-variant hover:bg-surface-variant/30"
+                }`}
+              >
+                <span className="material-symbols-outlined">group</span>
+                <span className="font-label-md text-xs font-semibold">Gestão Equipe</span>
+              </button>
+
+              <button
                 onClick={() => { setCurrentView("manage_units"); setShowMoreMenu(false); }}
                 className={`flex items-center gap-sm p-sm rounded-lg border text-left transition-all ${
                   currentView === "manage_units" 
@@ -651,6 +1009,83 @@ export default function App() {
               <span className="material-symbols-outlined text-sm">logout</span>
               Sair da Conta
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Cadastro Obrigatório de Telefone */}
+      {currentUser && currentUser.role === "client" && !currentUser.phone && (
+        <div className="fixed inset-0 z-50 bg-[#0a0a0c]/90 backdrop-blur-md flex items-center justify-center p-gutter animate-fade-in">
+          <div className="w-full max-w-md bg-surface-container border border-outline-variant/30 rounded-2xl p-lg shadow-2xl space-y-md text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-tertiary/10 border border-tertiary/20 text-tertiary shadow-lg shadow-tertiary/5">
+              <span className="material-symbols-outlined text-4xl">call</span>
+            </div>
+            
+            <div className="space-y-xs">
+              <h2 className="font-headline-md text-headline-sm text-on-surface">Número de Telefone Obrigatório</h2>
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                Olá, {currentUser.name}! Para prosseguir e agendar seus horários ou usar o clube de benefícios, precisamos do seu número de telefone para contato.
+              </p>
+            </div>
+
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!modalPhone.trim()) {
+                  setModalError("Por favor, informe seu número de telefone.");
+                  return;
+                }
+                setModalLoading(true);
+                setModalError("");
+                try {
+                  await dbService.updateClient(currentUser.uid, { phone: modalPhone.trim() });
+                  await refreshUser();
+                } catch (err) {
+                  console.error(err);
+                  setModalError("Erro ao salvar o telefone. Tente novamente.");
+                } finally {
+                  setModalLoading(false);
+                }
+              }} 
+              className="space-y-md text-left"
+            >
+              <div className="space-y-xs">
+                <label className="text-[10px] text-outline uppercase font-bold tracking-wider">
+                  Telefone / Celular (com DDD)
+                </label>
+                <input
+                  type="tel"
+                  placeholder="Ex: (19) 99999-9999"
+                  value={modalPhone}
+                  onChange={(e) => setModalPhone(e.target.value)}
+                  className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl px-md py-3 text-xs text-on-surface focus:outline-none focus:border-tertiary transition-all"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              {modalError && (
+                <p className="text-xs text-error font-bold flex items-center gap-xs">
+                  <span className="material-symbols-outlined text-sm">error</span> {modalError}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={modalLoading}
+                className="w-full bg-tertiary text-on-tertiary font-bold py-3.5 rounded-xl hover:brightness-110 active:scale-98 transition-all shadow-lg shadow-tertiary/20 uppercase tracking-widest font-label-md disabled:opacity-50 flex items-center justify-center gap-xs"
+              >
+                {modalLoading ? "Salvando..." : "Confirmar e Entrar"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full text-center text-xs text-outline hover:text-error transition-colors mt-xs py-1"
+              >
+                Sair da Conta
+              </button>
+            </form>
           </div>
         </div>
       )}

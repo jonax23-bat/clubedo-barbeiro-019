@@ -1,25 +1,29 @@
 import React, { useState, useEffect } from "react";
 import { dbService } from "../firebase/dbService";
 
-export default function ClientProfile({ user, navigateTo, refreshUser }) {
+export default function ClientProfile({ user, navigateTo, refreshUser, onRequestChangeUnit }) {
   const [currentUser, setCurrentUser] = useState(user);
   const [clients, setClients] = useState([]);
   const [planRequests, setPlanRequests] = useState([]);
   const [activeTab, setActiveTab] = useState("my_profile"); // my_profile | manage_clients | manage_plans | plan_requests
+  const [unitName, setUnitName] = useState(null);
   
   // My profile edit fields
   const [editName, setEditName] = useState("");
   const [editAvatar, setEditAvatar] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
   const [isEditingSelf, setIsEditingSelf] = useState(false);
 
   // Client registration fields
   const [newClientName, setNewClientName] = useState("");
   const [newClientEmail, setNewClientEmail] = useState("");
   const [newClientAvatar, setNewClientAvatar] = useState("");
+  const [newClientPhone, setNewClientPhone] = useState("");
   const [newClientPlan, setNewClientPlan] = useState("");
   const [newClientXp, setNewClientXp] = useState(0);
   const [newClientCoins, setNewClientCoins] = useState(0);
+  const [newClientUnitId, setNewClientUnitId] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
 
   // Client editing fields
@@ -27,9 +31,11 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
   const [editClientName, setEditClientName] = useState("");
   const [editClientEmail, setEditClientEmail] = useState("");
   const [editClientAvatar, setEditClientAvatar] = useState("");
+  const [editClientPhone, setEditClientPhone] = useState("");
   const [editClientPlan, setEditClientPlan] = useState("");
   const [editClientXp, setEditClientXp] = useState(0);
   const [editClientCoins, setEditClientCoins] = useState(0);
+  const [editClientUnitId, setEditClientUnitId] = useState("");
 
   // Plan Prices adjustments
   // Plan Prices adjustments
@@ -49,6 +55,9 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
   const [newClassicBenefit, setNewClassicBenefit] = useState("");
   const [newVipBenefit, setNewVipBenefit] = useState("");
   const [newMasterBenefit, setNewMasterBenefit] = useState("");
+
+  const [units, setUnits] = useState([]);
+  const [selectedUnitId, setSelectedUnitId] = useState("");
 
   // Dropdown mapping client.uid -> planName
   const [selectedPlanForClient, setSelectedPlanForClient] = useState({});
@@ -83,6 +92,7 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
       setEditName(u.name || "");
       setEditAvatar(u.avatarUrl || "");
       setEditEmail(u.email || "");
+      setEditPhone(u.phone || "");
     }
     const allClients = await dbService.getClients();
     setClients(allClients);
@@ -90,7 +100,18 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
     const allRequests = await dbService.getPlanRequests();
     setPlanRequests(allRequests);
 
-    const configs = await dbService.getPlanConfigs();
+    // Carrega lista de unidades
+    const allUnits = await dbService.getUnits();
+    setUnits(allUnits);
+
+    // Define unidade selecionada (primeira disponível ou a do usuário)
+    const targetUnitId = (u && u.unitId) || (allUnits.length > 0 ? allUnits[0].id : "");
+    setSelectedUnitId(targetUnitId);
+
+    // Carrega planos da unidade selecionada
+    const configs = targetUnitId
+      ? await dbService.getPlanConfigsByUnit(targetUnitId)
+      : await dbService.getPlanConfigs();
     if (configs) {
       setPlanConfigs(configs);
       setClassicPrice(configs["Plano Classic"]?.price || 70);
@@ -99,6 +120,17 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
       setClassicXpBonus(configs["Plano Classic"]?.xpBonus || 100);
       setVipXpBonus(configs["Plano VIP"]?.xpBonus || 500);
       setMasterXpBonus(configs["Plano Master"]?.xpBonus || 800);
+    }
+
+    // Carrega nome da unidade vinculada ao cliente
+    if (u && u.unitId) {
+      try {
+        const units = await dbService.getUnits();
+        const linkedUnit = units.find(un => un.id === u.unitId);
+        if (linkedUnit) setUnitName(linkedUnit.name);
+      } catch (e) {
+        console.warn("Erro ao buscar unidade do cliente:", e);
+      }
     }
   };
 
@@ -169,6 +201,21 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
     }));
   };
 
+  const handleUnitChange = async (unitId) => {
+    setSelectedUnitId(unitId);
+    if (!unitId) return;
+    const configs = await dbService.getPlanConfigsByUnit(unitId);
+    if (configs) {
+      setPlanConfigs(configs);
+      setClassicPrice(configs["Plano Classic"]?.price || 70);
+      setVipPrice(configs["Plano VIP"]?.price || 120);
+      setMasterPrice(configs["Plano Master"]?.price || 180);
+      setClassicXpBonus(configs["Plano Classic"]?.xpBonus || 100);
+      setVipXpBonus(configs["Plano VIP"]?.xpBonus || 500);
+      setMasterXpBonus(configs["Plano Master"]?.xpBonus || 800);
+    }
+  };
+
   const handleUpdatePlanPrices = async (e) => {
     e.preventDefault();
     setMessage(null);
@@ -190,7 +237,11 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
           benefits: planConfigs["Plano Master"].benefits || [] 
         }
       };
-      await dbService.updatePlanConfigs(updated);
+      if (selectedUnitId) {
+        await dbService.updatePlanConfigsByUnit(selectedUnitId, updated);
+      } else {
+        await dbService.updatePlanConfigs(updated);
+      }
       setPlanConfigs(updated);
       setMessage({ type: "success", text: "Configurações dos planos atualizadas com sucesso!" });
     } catch (err) {
@@ -205,7 +256,8 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
       await dbService.updateClient(currentUser.uid, {
         name: editName,
         avatarUrl: editAvatar,
-        email: editEmail
+        email: editEmail,
+        phone: editPhone
       });
       setIsEditingSelf(false);
       setMessage({ type: "success", text: "Perfil atualizado com sucesso!" });
@@ -219,23 +271,27 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
   const handleRegisterClient = async (e) => {
     e.preventDefault();
     setMessage(null);
-    if (!newClientName.trim()) return;
+    if (!newClientName.trim() || !newClientPhone.trim()) return;
 
     try {
       await dbService.createClient({
         name: newClientName,
         email: newClientEmail,
+        phone: newClientPhone,
         avatarUrl: newClientAvatar,
         plan: newClientPlan || null,
+        unitId: newClientUnitId || null,
         xp: parseInt(newClientXp) || 0,
         coins: parseInt(newClientCoins) || 0
       });
       setNewClientName("");
       setNewClientEmail("");
+      setNewClientPhone("");
       setNewClientAvatar("");
       setNewClientPlan("");
       setNewClientXp(0);
       setNewClientCoins(0);
+      setNewClientUnitId("");
       setShowAddForm(false);
       setMessage({ type: "success", text: "Cliente cadastrado com sucesso!" });
       loadData();
@@ -249,9 +305,11 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
     setEditClientName(client.name || "");
     setEditClientEmail(client.email || "");
     setEditClientAvatar(client.avatarUrl || "");
+    setEditClientPhone(client.phone || "");
     setEditClientPlan(client.plan || "");
     setEditClientXp(client.xp || 0);
     setEditClientCoins(client.coins || 0);
+    setEditClientUnitId(client.unitId || "");
   };
 
   const handleSaveClientEdit = async (e) => {
@@ -262,7 +320,9 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
         name: editClientName,
         email: editClientEmail,
         avatarUrl: editClientAvatar,
+        phone: editClientPhone,
         plan: editClientPlan || null,
+        unitId: editClientUnitId || null,
         xp: parseInt(editClientXp) || 0,
         coins: parseInt(editClientCoins) || 0
       });
@@ -509,6 +569,29 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
                   </div>
                 )}
               </div>
+
+              {/* Unidade vinculada (apenas para clientes) */}
+              {currentUser.role === "client" && (
+                <div className="w-full bg-tertiary/5 border border-tertiary/20 p-md rounded-xl text-left space-y-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-tertiary" style={{ fontSize: "16px" }}>location_on</span>
+                      <span className="text-[10px] text-outline uppercase tracking-wider">Minha Unidade</span>
+                    </div>
+                    {onRequestChangeUnit && (
+                      <button
+                        onClick={onRequestChangeUnit}
+                        className="text-[10px] text-tertiary hover:underline font-semibold"
+                      >
+                        Trocar
+                      </button>
+                    )}
+                  </div>
+                  <strong className="text-tertiary font-mono text-sm block">
+                    {unitName || "Nenhuma unidade selecionada"}
+                  </strong>
+                </div>
+              )}
             </div>
           </div>
 
@@ -528,7 +611,7 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
               </div>
 
               <form onSubmit={handleUpdateSelf} className="space-y-md">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
                   <div className="space-y-1">
                     <label className="text-label-sm text-on-surface-variant block">Nome</label>
                     <input 
@@ -552,18 +635,75 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
                       required
                     />
                   </div>
+
+                  <div className="space-y-1">
+                    <label className="text-label-sm text-on-surface-variant block">Telefone</label>
+                    <input 
+                      type="tel" 
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      disabled={!isEditingSelf}
+                      className="w-full bg-surface-container border border-outline-variant/30 rounded-lg p-md text-xs text-on-surface focus:outline-none focus:border-tertiary disabled:opacity-50"
+                      required
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-label-sm text-on-surface-variant block">URL da Foto de Perfil</label>
-                  <input 
-                    type="url" 
-                    value={editAvatar}
-                    onChange={(e) => setEditAvatar(e.target.value)}
-                    disabled={!isEditingSelf}
-                    className="w-full bg-surface-container border border-outline-variant/30 rounded-lg p-md text-xs text-on-surface focus:outline-none focus:border-tertiary disabled:opacity-50"
-                    placeholder="https://exemplo.com/sua-foto.jpg"
-                  />
+                <div className="space-y-sm bg-surface-container/30 p-md rounded-xl border border-outline-variant/10">
+                  <div className="flex flex-col sm:flex-row gap-md items-center justify-between">
+                    <div className="flex items-center gap-sm">
+                      <div className="w-16 h-16 rounded-full overflow-hidden border border-outline-variant/30 shrink-0">
+                        <img 
+                          src={editAvatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=60"} 
+                          alt="Avatar do Cliente" 
+                          className="w-full h-full object-cover" 
+                        />
+                      </div>
+                      <div className="text-left">
+                        <span className="text-label-sm text-on-surface-variant block font-bold">Foto de Perfil</span>
+                        <span className="text-[10px] text-outline font-mono block">Escolha uma foto ou cole a URL</span>
+                      </div>
+                    </div>
+                    
+                    {isEditingSelf ? (
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-xs">
+                        <label className="bg-tertiary text-on-tertiary px-sm py-2 rounded-lg font-bold text-xs uppercase cursor-pointer hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-xs shrink-0">
+                          <span className="material-symbols-outlined text-sm">upload</span>
+                          Enviar Foto
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            className="hidden" 
+                            onChange={async (e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = async () => {
+                                  try {
+                                    const uploadedUrl = await dbService.uploadImage(reader.result, currentUser.uid);
+                                    setEditAvatar(uploadedUrl);
+                                  } catch (err) {
+                                    console.error("Upload error", err);
+                                  }
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </label>
+                        <span className="text-outline text-xs text-center">ou</span>
+                        <input 
+                          type="url" 
+                          placeholder="Cole URL da foto"
+                          value={editAvatar}
+                          onChange={(e) => setEditAvatar(e.target.value)}
+                          className="bg-surface-container border border-outline-variant/30 rounded-lg px-md py-2 text-xs text-on-surface focus:outline-none focus:border-tertiary max-w-[200px]"
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-xs text-outline italic">Edição desativada</p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-1">
@@ -618,7 +758,7 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
             <div className="glass-card p-md md:p-lg rounded-xl border border-tertiary/20 max-w-5xl space-y-md animate-scale-in">
               <h4 className="font-headline-md text-label-md text-tertiary uppercase tracking-wider font-bold">Novo Cliente</h4>
               <form onSubmit={handleRegisterClient} className="space-y-md">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
                   <div className="space-y-1">
                     <label className="text-label-sm text-on-surface-variant block">Nome do Cliente *</label>
                     <input 
@@ -641,9 +781,20 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
                       placeholder="ricardo.silva@email.com"
                     />
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-label-sm text-on-surface-variant block">Telefone *</label>
+                    <input 
+                      type="tel" 
+                      value={newClientPhone}
+                      onChange={(e) => setNewClientPhone(e.target.value)}
+                      className="w-full bg-surface-container border border-outline-variant/30 rounded-lg p-md text-xs text-on-surface focus:outline-none focus:border-tertiary"
+                      required
+                      placeholder="(19) 99999-9999"
+                    />
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-md">
                   <div className="space-y-1">
                     <label className="text-label-sm text-on-surface-variant block">Plano Inicial</label>
                     <select 
@@ -655,6 +806,22 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
                       <option value="Plano Classic">Plano Classic</option>
                       <option value="Plano VIP">Plano VIP</option>
                       <option value="Plano Master">Plano Master</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-label-sm text-on-surface-variant block">Loja / Unidade *</label>
+                    <select 
+                      value={newClientUnitId}
+                      onChange={(e) => setNewClientUnitId(e.target.value)}
+                      className="w-full bg-surface-container border border-outline-variant/30 rounded-lg p-md text-xs text-on-surface focus:outline-none focus:border-tertiary"
+                      required
+                    >
+                      <option value="">Selecione uma loja</option>
+                      {units.map((unit) => (
+                        <option key={unit.id} value={unit.id}>
+                          {unit.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="space-y-1">
@@ -679,15 +846,57 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-label-sm text-on-surface-variant block">Foto de Perfil URL (Opcional)</label>
-                  <input 
-                    type="url" 
-                    value={newClientAvatar}
-                    onChange={(e) => setNewClientAvatar(e.target.value)}
-                    className="w-full bg-surface-container border border-outline-variant/30 rounded-lg p-md text-xs text-on-surface focus:outline-none focus:border-tertiary"
-                    placeholder="https://exemplo.com/avatar.jpg"
-                  />
+                <div className="space-y-sm bg-surface-container/30 p-md rounded-xl border border-outline-variant/10">
+                  <div className="flex flex-col sm:flex-row gap-md items-center justify-between">
+                    <div className="flex items-center gap-sm">
+                      <div className="w-12 h-12 rounded-full overflow-hidden border border-outline-variant/30 shrink-0">
+                        <img 
+                          src={newClientAvatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=60"} 
+                          alt="Novo Cliente Avatar" 
+                          className="w-full h-full object-cover" 
+                        />
+                      </div>
+                      <div className="text-left">
+                        <span className="text-label-sm text-on-surface-variant block font-bold">Foto do Novo Cliente</span>
+                        <span className="text-[10px] text-outline font-mono block">Opcional</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-xs">
+                      <label className="bg-tertiary text-on-tertiary px-sm py-2 rounded-lg font-bold text-xs uppercase cursor-pointer hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-xs shrink-0">
+                        <span className="material-symbols-outlined text-sm">upload</span>
+                        Enviar Foto
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          className="hidden" 
+                          onChange={async (e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = async () => {
+                                try {
+                                  const uploadedUrl = await dbService.uploadImage(reader.result, "owner_registration");
+                                  setNewClientAvatar(uploadedUrl);
+                                } catch (err) {
+                                  console.error("Upload error", err);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      <span className="text-outline text-xs text-center">ou</span>
+                      <input 
+                        type="url" 
+                        placeholder="Cole URL da foto"
+                        value={newClientAvatar}
+                        onChange={(e) => setNewClientAvatar(e.target.value)}
+                        className="bg-surface-container border border-outline-variant/30 rounded-lg px-md py-2 text-xs text-on-surface focus:outline-none focus:border-tertiary max-w-[200px]"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex gap-sm justify-end">
@@ -714,7 +923,7 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
             <div className="glass-card p-md md:p-lg rounded-xl border border-tertiary/40 max-w-5xl space-y-md animate-scale-in">
               <h4 className="font-headline-md text-label-md text-tertiary uppercase tracking-wider font-bold">Editar Dados do Cliente</h4>
               <form onSubmit={handleSaveClientEdit} className="space-y-md">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
                   <div className="space-y-1">
                     <label className="text-label-sm text-on-surface-variant block">Nome do Cliente</label>
                     <input 
@@ -735,9 +944,19 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
                       required
                     />
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-label-sm text-on-surface-variant block">Telefone</label>
+                    <input 
+                      type="tel" 
+                      value={editClientPhone}
+                      onChange={(e) => setEditClientPhone(e.target.value)}
+                      className="w-full bg-surface-container border border-outline-variant/30 rounded-lg p-md text-xs text-on-surface focus:outline-none focus:border-tertiary"
+                      required
+                    />
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-md">
                   <div className="space-y-1">
                     <label className="text-label-sm text-on-surface-variant block">Plano</label>
                     <select 
@@ -749,6 +968,21 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
                       <option value="Plano Classic">Plano Classic</option>
                       <option value="Plano VIP">Plano VIP</option>
                       <option value="Plano Master">Plano Master</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-label-sm text-on-surface-variant block">Loja / Unidade</label>
+                    <select 
+                      value={editClientUnitId}
+                      onChange={(e) => setEditClientUnitId(e.target.value)}
+                      className="w-full bg-surface-container border border-outline-variant/30 rounded-lg p-md text-xs text-on-surface focus:outline-none focus:border-tertiary"
+                    >
+                      <option value="">Nenhuma loja vinculada</option>
+                      {units.map((unit) => (
+                        <option key={unit.id} value={unit.id}>
+                          {unit.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="space-y-1">
@@ -773,14 +1007,57 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-label-sm text-on-surface-variant block">Foto de Perfil URL</label>
-                  <input 
-                    type="url" 
-                    value={editClientAvatar}
-                    onChange={(e) => setEditClientAvatar(e.target.value)}
-                    className="w-full bg-surface-container border border-outline-variant/30 rounded-lg p-md text-xs text-on-surface focus:outline-none focus:border-tertiary"
-                  />
+                <div className="space-y-sm bg-surface-container/30 p-md rounded-xl border border-outline-variant/10">
+                  <div className="flex flex-col sm:flex-row gap-md items-center justify-between">
+                    <div className="flex items-center gap-sm">
+                      <div className="w-12 h-12 rounded-full overflow-hidden border border-outline-variant/30 shrink-0">
+                        <img 
+                          src={editClientAvatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=60"} 
+                          alt="Editar Cliente Avatar" 
+                          className="w-full h-full object-cover" 
+                        />
+                      </div>
+                      <div className="text-left">
+                        <span className="text-label-sm text-on-surface-variant block font-bold">Foto do Cliente</span>
+                        <span className="text-[10px] text-outline font-mono block">Escolha uma foto ou cole a URL</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-xs">
+                      <label className="bg-tertiary text-on-tertiary px-sm py-2 rounded-lg font-bold text-xs uppercase cursor-pointer hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-xs shrink-0">
+                        <span className="material-symbols-outlined text-sm">upload</span>
+                        Enviar Foto
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          className="hidden" 
+                          onChange={async (e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = async () => {
+                                try {
+                                  const uploadedUrl = await dbService.uploadImage(reader.result, editingClientUid);
+                                  setEditClientAvatar(uploadedUrl);
+                                } catch (err) {
+                                  console.error("Upload error", err);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      <span className="text-outline text-xs text-center">ou</span>
+                      <input 
+                        type="url" 
+                        placeholder="Cole URL da foto"
+                        value={editClientAvatar}
+                        onChange={(e) => setEditClientAvatar(e.target.value)}
+                        className="bg-surface-container border border-outline-variant/30 rounded-lg px-md py-2 text-xs text-on-surface focus:outline-none focus:border-tertiary max-w-[200px]"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex gap-sm justify-end">
@@ -809,7 +1086,7 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
                 <thead className="bg-surface-variant/50 text-label-sm uppercase font-bold text-on-surface-variant">
                   <tr>
                     <th className="px-md py-sm">Foto</th>
-                    <th className="px-md py-sm">Cliente / E-mail</th>
+                    <th className="px-md py-sm">Cliente / E-mail / Telefone</th>
                     <th className="px-md py-sm">Plano / Status / Validade</th>
                     <th className="px-md py-sm">XP / Coins</th>
                     <th className="px-md py-sm text-right">Ações</th>
@@ -844,6 +1121,16 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
                             )}
                           </div>
                           <div className="text-[10px] text-outline font-mono mt-0.5">{client.email}</div>
+                          {client.phone && (
+                            <div className="text-[10px] text-tertiary font-semibold flex items-center gap-xs mt-0.5">
+                              <span className="material-symbols-outlined text-[12px]">call</span>
+                              <span>{client.phone}</span>
+                            </div>
+                          )}
+                          <div className="text-[10px] text-on-surface-variant font-semibold flex items-center gap-xs mt-0.5">
+                            <span className="material-symbols-outlined text-[12px] text-tertiary">location_on</span>
+                            <span>{units.find(u => u.id === client.unitId)?.name || "Sem loja vinculada"}</span>
+                          </div>
                         </td>
 
                         {/* 3. Plano, Status e Validade mesclados */}
@@ -946,6 +1233,16 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
                         )}
                       </h4>
                       <p className="text-[10px] text-outline font-mono truncate">{client.email}</p>
+                      {client.phone && (
+                        <p className="text-[10px] text-tertiary font-semibold flex items-center gap-[2px] mt-0.5">
+                          <span className="material-symbols-outlined text-[12px]">call</span>
+                          <span>{client.phone}</span>
+                        </p>
+                      )}
+                      <p className="text-[10px] text-on-surface-variant font-semibold flex items-center gap-[2px] mt-0.5">
+                        <span className="material-symbols-outlined text-[12px] text-tertiary">location_on</span>
+                        <span>{units.find(u => u.id === client.unitId)?.name || "Sem loja vinculada"}</span>
+                      </p>
                     </div>
                   </div>
 
@@ -1037,8 +1334,26 @@ export default function ClientProfile({ user, navigateTo, refreshUser }) {
 
           <form onSubmit={handleUpdatePlanPrices} className="space-y-md">
             <p className="text-xs text-on-surface-variant">
-              Modifique os valores mensais, o bônus de XP e a lista de benefícios incluídos em cada assinatura. As alterações serão refletidas na tela de planos pública.
+              Selecione a loja e modifique os valores mensais, o bônus de XP e a lista de benefícios incluídos em cada assinatura. As alterações serão refletidas na tela de planos da loja selecionada.
             </p>
+
+            <div className="space-y-xs">
+              <label className="text-label-sm text-outline uppercase font-bold text-[10px]">Selecionar Loja</label>
+              <select
+                value={selectedUnitId}
+                onChange={(e) => handleUnitChange(e.target.value)}
+                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-md py-sm text-on-surface focus:outline-none"
+              >
+                {units.length === 0 && (
+                  <option value="">Nenhuma loja encontrada</option>
+                )}
+                {units.map((unit) => (
+                  <option key={unit.id} value={unit.id}>
+                    {unit.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
               {renderPlanCard(

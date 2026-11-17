@@ -39,21 +39,21 @@ service cloud.firestore {
     
     // 3. Appointments collection
     match /appointments/{aptId} {
-      allow read: if signedIn() && (
-        isOwner() || 
-        resource.data.clientUid == request.auth.uid || 
-        resource.data.barberUid == request.auth.uid
-      );
+      allow read: if signedIn();
       allow create: if signedIn() && (
         isOwner() || 
-        request.resource.data.clientUid == request.auth.uid
+        request.resource.data.clientUid == request.auth.uid ||
+        request.resource.data.barberUid == request.auth.uid
       );
       allow update: if signedIn() && (
         isOwner() || 
         resource.data.clientUid == request.auth.uid || 
         resource.data.barberUid == request.auth.uid
       );
-      allow delete: if isOwner();
+      allow delete: if signedIn() && (
+        isOwner() ||
+        resource.data.barberUid == request.auth.uid
+      );
     }
     
     // 4. Posts collection
@@ -105,6 +105,11 @@ service cloud.firestore {
     match /units/{unitId} {
       allow read: if signedIn();
       allow write: if isOwner();
+
+      match /plans/{docId} {
+        allow read: if signedIn();
+        allow write: if isOwner();
+      }
     }
     
     // 9. Branding collection (singleton)

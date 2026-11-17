@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { dbService } from "../firebase/dbService";
 
 export default function ManageStore({ user, navigateTo }) {
+  const fileInputRef = useRef(null);
   const [storeItems, setStoreItems] = useState([]);
   const [redemptions, setRedemptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,6 +19,7 @@ export default function ManageStore({ user, navigateTo }) {
   const [sellingPrice, setSellingPrice] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [uploadType, setUploadType] = useState("file"); // file | url
   const [category, setCategory] = useState("products");
   const [stock, setStock] = useState("");
   
@@ -52,6 +54,7 @@ export default function ManageStore({ user, navigateTo }) {
     setSellingPrice("");
     setDescription("");
     setImageUrl("");
+    setUploadType("file");
     setCategory("products");
     setStock("");
     setIsFormOpen(true);
@@ -64,6 +67,7 @@ export default function ManageStore({ user, navigateTo }) {
     setSellingPrice(item.sellingPrice || Math.round(item.price / coinRatio));
     setDescription(item.description);
     setImageUrl(item.imageUrl);
+    setUploadType(item.imageUrl?.startsWith("data:") ? "file" : "url");
     setCategory(item.category);
     setStock(item.stock);
     setIsFormOpen(true);
@@ -289,14 +293,92 @@ export default function ManageStore({ user, navigateTo }) {
                   </div>
 
                   <div className="space-y-xs">
-                    <label className="text-label-sm font-label-sm text-on-surface-variant uppercase">URL da Imagem</label>
-                    <input
-                      type="text"
-                      value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
-                      placeholder="https://exemplo.com/imagem.jpg"
-                      className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-md py-sm text-on-surface focus:outline-none"
-                    />
+                    <label className="text-label-sm font-label-sm text-on-surface-variant uppercase block">Imagem do Prêmio</label>
+                    <div className="flex gap-sm">
+                      <button
+                        type="button"
+                        onClick={() => { setUploadType("file"); }}
+                        className={`px-sm py-1.5 rounded-lg border text-xs font-semibold ${
+                          uploadType === "file" 
+                            ? "bg-tertiary/10 border-tertiary text-tertiary" 
+                            : "bg-surface-container-lowest border-outline-variant/20 text-on-surface-variant"
+                        }`}
+                      >
+                        Enviar Arquivo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setUploadType("url"); }}
+                        className={`px-sm py-1.5 rounded-lg border text-xs font-semibold ${
+                          uploadType === "url" 
+                            ? "bg-tertiary/10 border-tertiary text-tertiary" 
+                            : "bg-surface-container-lowest border-outline-variant/20 text-on-surface-variant"
+                        }`}
+                      >
+                        URL da Imagem
+                      </button>
+                    </div>
+
+                    {uploadType === "file" ? (
+                      <div className="flex flex-col gap-xs mt-xs">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              if (file.size > 2 * 1024 * 1024) {
+                                alert("A imagem é muito grande! Escolha um arquivo de até 2MB.");
+                                return;
+                              }
+                              const reader = new FileReader();
+                              reader.onloadend = async () => {
+                                try {
+                                  const uploadedUrl = await dbService.uploadImage(reader.result, "store_product");
+                                  setImageUrl(uploadedUrl);
+                                } catch (err) {
+                                  console.error("Upload error", err);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                          className="w-full bg-surface-container-lowest border border-outline-variant/30 hover:border-tertiary hover:bg-tertiary/5 text-on-surface rounded-xl p-md flex flex-col items-center justify-center gap-xs transition-all group cursor-pointer border-dashed min-h-[90px]"
+                        >
+                          <span className="material-symbols-outlined text-tertiary text-2xl group-hover:scale-110 transition-transform">cloud_upload</span>
+                          <span className="font-label-md text-xs text-on-surface-variant font-bold uppercase tracking-wider">Selecionar Foto</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={imageUrl.startsWith("data:") ? "" : imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                        placeholder="https://exemplo.com/imagem.jpg"
+                        className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-md py-sm text-on-surface focus:outline-none mt-xs text-xs"
+                      />
+                    )}
+
+                    {imageUrl && (
+                      <div className="mt-xs flex items-center gap-sm">
+                        <div className="w-16 h-16 rounded-lg overflow-hidden border border-outline-variant/20 bg-surface-container-lowest">
+                          <img src={imageUrl} alt="Prévia" className="w-full h-full object-cover" />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setImageUrl("")}
+                          className="text-xs text-error font-bold hover:underline flex items-center gap-xs"
+                        >
+                          <span className="material-symbols-outlined text-xs">close</span> Remover Imagem
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 

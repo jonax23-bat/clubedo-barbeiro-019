@@ -12,12 +12,19 @@ export default function ManageTeam({ user, navigateTo }) {
   const [newBarberRole, setNewBarberRole] = useState("Master Barber");
   const [newBarberAvatar, setNewBarberAvatar] = useState("");
   const [newBarberBio, setNewBarberBio] = useState("");
+  const [newBarberPhone, setNewBarberPhone] = useState("");
   const [selectedUnits, setSelectedUnits] = useState([]);
   
   const [savingBarber, setSavingBarber] = useState(false);
   const [generatedCredentials, setGeneratedCredentials] = useState(null);
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [occupancy, setOccupancy] = useState(0);
+  const [morningStatus, setMorningStatus] = useState("Carregando...");
+  const [onDutyBarbers, setOnDutyBarbers] = useState("Nenhum");
+  const [nextAppointment, setNextAppointment] = useState("Carregando...");
+  const [alertsCount, setAlertsCount] = useState("Nenhum");
+  const [productivityDays, setProductivityDays] = useState([]);
 
   // --- Efeito: Carregar Dados ---
   useEffect(() => {
@@ -30,6 +37,93 @@ export default function ManageTeam({ user, navigateTo }) {
       const uList = await dbService.getUnits();
       setBarbers(bList);
       setUnits(uList);
+
+      // Fetch all appointments
+      const allApts = await dbService.getAllAppointments();
+      
+      // Get today's date in YYYY-MM-DD
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      const todayStr = `${yyyy}-${mm}-${dd}`;
+      const currentHHMM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+      const todayApts = allApts.filter(a => a.date === todayStr && a.status !== "cancelled");
+
+      // 1. Occupancy Today
+      const activeBarbers = bList.filter(b => b.status !== "off-duty");
+      const capacity = Math.max(1, activeBarbers.length) * 16; // 16 slots per barber
+      const occVal = Math.min(100, Math.round((todayApts.length / capacity) * 100));
+      setOccupancy(occVal);
+
+      // 2. Turno Manhã
+      const morningApts = todayApts.filter(a => {
+        const hour = parseInt(a.time.split(":")[0]);
+        return hour < 12;
+      });
+      const completedMorning = morningApts.filter(a => a.status === "completed");
+      if (morningApts.length > 0) {
+        setMorningStatus(`Finalizado (${completedMorning.length}/${morningApts.length})`);
+      } else {
+        setMorningStatus("Sem agendamentos");
+      }
+
+      // 3. No Salão Agora
+      const onDuty = bList.filter(b => b.status === "online" || b.status === "busy").map(b => b.name.split(" ")[0]);
+      setOnDutyBarbers(onDuty.length > 0 ? onDuty.join(", ") : "Nenhum");
+
+      // 4. Próximo Turno / Próximo Agendamento
+      const futureApts = todayApts
+        .filter(a => a.status === "scheduled" && a.time >= currentHHMM)
+        .sort((a, b) => a.time.localeCompare(b.time));
+      if (futureApts.length > 0) {
+        setNextAppointment(`${futureApts[0].barberName.split(" ")[0]} (${futureApts[0].time})`);
+      } else {
+        setNextAppointment("Sem agendamentos");
+      }
+
+      // 5. Atenção / Alertas (agendamentos do dia que já passaram do horário mas continuam 'scheduled')
+      const lateApts = todayApts.filter(a => a.status === "scheduled" && a.time < currentHHMM);
+      if (lateApts.length > 0) {
+        setAlertsCount(`${lateApts.length} pendentes`);
+      } else {
+        setAlertsCount("Sem alertas");
+      }
+
+      // 6. Produtividade Semanal (Monday to Saturday)
+      const currentDay = now.getDay(); // 0 is Sunday, 1 is Monday, etc.
+      const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() + mondayOffset);
+
+      const daysOfWeek = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
+      const computedProdDays = daysOfWeek.map((dayName, index) => {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + index);
+        
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const dayDd = String(d.getDate()).padStart(2, "0");
+        const dateStr = `${y}-${m}-${dayDd}`;
+
+        const dayApts = allApts.filter(a => a.date === dateStr && a.status !== "cancelled");
+        const dayActiveBarbers = bList.filter(b => b.status !== "off-duty");
+        const dayCapacity = Math.max(1, dayActiveBarbers.length) * 16;
+        const dayOccVal = Math.min(100, Math.round((dayApts.length / dayCapacity) * 100));
+
+        const isToday = d.getDate() === now.getDate() && 
+                        d.getMonth() === now.getMonth() && 
+                        d.getFullYear() === now.getFullYear();
+
+        return {
+          name: dayName,
+          value: dayOccVal,
+          isCurrent: isToday
+        };
+      });
+      setProductivityDays(computedProdDays);
+
     } catch (e) {
       console.error(e);
     }
@@ -59,6 +153,7 @@ export default function ManageTeam({ user, navigateTo }) {
         role: newBarberRole,
         avatarUrl: newBarberAvatar.trim() || "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=150&auto=format&fit=crop&q=60",
         bio: newBarberBio,
+        phone: newBarberPhone,
         unitIds: selectedUnits,
         login: creds.login,
         password: creds.password
@@ -79,6 +174,7 @@ export default function ManageTeam({ user, navigateTo }) {
       setNewBarberName("");
       setNewBarberAvatar("");
       setNewBarberBio("");
+      setNewBarberPhone("");
       setSelectedUnits([]);
       setShowAddForm(false);
       loadData();
@@ -111,16 +207,6 @@ export default function ManageTeam({ user, navigateTo }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // --- Dados de Produtividade Semanal (Gráfico de Barras) ---
-  const productivityDays = [
-    { name: "Seg", value: 40, isCurrent: false },
-    { name: "Ter", value: 65, isCurrent: false },
-    { name: "Qua", value: 85, isCurrent: true },
-    { name: "Qui", value: 75, isCurrent: false },
-    { name: "Sex", value: 95, isCurrent: false },
-    { name: "Sab", value: 100, isCurrent: false }
-  ];
-
   return (
     <div className="space-y-md">
       
@@ -139,7 +225,7 @@ export default function ManageTeam({ user, navigateTo }) {
               <span className="text-label-md uppercase tracking-wider text-on-surface-variant">Barbeiros Ativos</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-display-lg font-display-lg text-on-surface">92%</span>
+              <span className="text-display-lg font-display-lg text-on-surface">{occupancy}%</span>
               <span className="text-label-md uppercase tracking-wider text-on-surface-variant">Ocupação Hoje</span>
             </div>
           </div>
@@ -175,20 +261,51 @@ export default function ManageTeam({ user, navigateTo }) {
               </select>
             </div>
 
-            <div className="space-y-xs">
-              <label className="text-label-sm text-outline uppercase tracking-wider">Foto de Perfil (URL)</label>
-              <input
-                type="text"
-                value={newBarberAvatar}
-                onChange={(e) => setNewBarberAvatar(e.target.value)}
-                placeholder="https://exemplo.com/foto.jpg"
-                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded p-sm text-on-surface focus:outline-none"
-              />
-              {newBarberAvatar.trim() && (
-                <div className="flex justify-center pt-xs">
-                  <img src={newBarberAvatar} alt="Preview" className="w-12 h-12 rounded-xl object-cover border border-outline-variant/30" />
+            <div className="space-y-sm bg-surface-container/30 p-sm rounded-xl border border-outline-variant/10">
+              <label className="text-label-sm text-outline uppercase tracking-wider block">Foto de Perfil do Barbeiro</label>
+              <div className="flex gap-sm items-center">
+                <div className="w-12 h-12 rounded-xl overflow-hidden border border-outline-variant/30 bg-surface-container shrink-0">
+                  <img 
+                    src={newBarberAvatar || "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=150&auto=format&fit=crop&q=60"} 
+                    alt="Preview Barbeiro" 
+                    className="w-full h-full object-cover" 
+                  />
                 </div>
-              )}
+                
+                <div className="flex-1 flex flex-col gap-xs">
+                  <label className="bg-tertiary text-on-tertiary px-sm py-1.5 rounded-lg font-bold text-[10px] uppercase cursor-pointer hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-xs">
+                    <span className="material-symbols-outlined text-xs">upload</span>
+                    Enviar Foto
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      className="hidden" 
+                      onChange={async (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = async () => {
+                            try {
+                              const uploadedUrl = await dbService.uploadImage(reader.result, "new_barber_avatar");
+                              setNewBarberAvatar(uploadedUrl);
+                            } catch (err) {
+                              console.error("Upload error", err);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                  <input
+                    type="text"
+                    value={newBarberAvatar}
+                    onChange={(e) => setNewBarberAvatar(e.target.value)}
+                    placeholder="Cole URL da foto"
+                    className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded p-1 text-[10px] text-on-surface focus:outline-none"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="space-y-xs">
@@ -199,6 +316,17 @@ export default function ManageTeam({ user, navigateTo }) {
                 placeholder="Ex: Especialista em fade há 5 anos..."
                 className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded p-sm text-on-surface focus:outline-none"
                 rows="2"
+              />
+            </div>
+
+            <div className="space-y-xs">
+              <label className="text-label-sm text-outline uppercase tracking-wider">Telefone / WhatsApp</label>
+              <input
+                type="text"
+                value={newBarberPhone}
+                onChange={(e) => setNewBarberPhone(e.target.value)}
+                placeholder="Ex: (19) 99999-9999"
+                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded p-sm text-on-surface focus:outline-none"
               />
             </div>
 
@@ -308,19 +436,19 @@ export default function ManageTeam({ user, navigateTo }) {
         <div className="p-md grid grid-cols-2 md:grid-cols-4 gap-md">
           <div className="flex flex-col gap-xs">
             <span className="text-label-sm uppercase text-on-surface-variant">Turno Manhã</span>
-            <p className="font-bold text-on-surface">Finalizado (3/3)</p>
+            <p className="font-bold text-on-surface">{morningStatus}</p>
           </div>
           <div className="flex flex-col gap-xs">
             <span className="text-label-sm uppercase text-on-surface-variant">No Salão Agora</span>
-            <p className="font-bold text-tertiary">Marcus, Leo, Rodrigo</p>
+            <p className="font-bold text-tertiary">{onDutyBarbers}</p>
           </div>
           <div className="flex flex-col gap-xs">
-            <span className="text-label-sm uppercase text-on-surface-variant">Próximo Turno</span>
-            <p className="font-bold text-on-surface">Vitor (16:00)</p>
+            <span className="text-label-sm uppercase text-on-surface-variant">Próximo Agendamento</span>
+            <p className="font-bold text-on-surface">{nextAppointment}</p>
           </div>
           <div className="flex flex-col gap-xs">
             <span className="text-label-sm uppercase text-on-surface-variant">Atenção</span>
-            <p className="font-bold text-error">1 Folga Pendente</p>
+            <p className="font-bold text-error">{alertsCount}</p>
           </div>
         </div>
       </section>

@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { dbService } from "../firebase/dbService";
 
-export default function Plans({ user, navigateTo, refreshUser }) {
+export default function Plans({ user, navigateTo, refreshUser, unitId }) {
   // --- Estados do Componente ---
   const [loadingPlan, setLoadingPlan] = useState(null);
   const [subscriptionSuccess, setSubscriptionSuccess] = useState(null);
+  const [activePaymentPlan, setActivePaymentPlan] = useState(null);
+  const [branding, setBranding] = useState(null);
+  const [pixCopied, setPixCopied] = useState(false);
+  const [unitName, setUnitName] = useState(null);
   const [planConfigs, setPlanConfigs] = useState({
     "Plano Classic": { price: 70, xpBonus: 100, benefits: [] },
     "Plano VIP": { price: 120, xpBonus: 500, benefits: [] },
@@ -23,16 +27,27 @@ export default function Plans({ user, navigateTo, refreshUser }) {
   useEffect(() => {
     const fetchConfigs = async () => {
       try {
-        const configs = await dbService.getPlanConfigs();
+        // Busca planos específicos da unidade do cliente (com fallback global)
+        const configs = await dbService.getPlanConfigsByUnit(unitId);
         if (configs) {
           setPlanConfigs(configs);
+        }
+        const brandingData = await dbService.getBranding();
+        if (brandingData) {
+          setBranding(brandingData);
+        }
+        // Busca nome da unidade para exibir no header
+        if (unitId) {
+          const units = await dbService.getUnits();
+          const unit = units.find(u => u.id === unitId);
+          if (unit) setUnitName(unit.name);
         }
       } catch (err) {
         console.error("Erro ao carregar configurações de planos:", err);
       }
     };
     fetchConfigs();
-  }, []);
+  }, [unitId]);
 
   // --- Função para Solicitar Assinatura de Plano ---
   const handleSubscribe = async (planName, price, xpBonus) => {
@@ -46,12 +61,8 @@ export default function Plans({ user, navigateTo, refreshUser }) {
       // Envia a solicitação de plano pendente ao administrador
       await dbService.requestPlanSubscription(user.uid, user.name, user.email, planName, price, xpBonus);
 
-      setSubscriptionSuccess(`Solicitação de assinatura do ${planName} enviada! Aguardando confirmação do pagamento pelo administrador para liberação.`);
-
-      // Redireciona para a home depois de 3.5s
-      setTimeout(() => {
-        navigateTo("home");
-      }, 3500);
+      setSubscriptionSuccess(`Solicitação de assinatura do ${planName} enviada com sucesso!`);
+      setActivePaymentPlan({ name: planName, price: price });
 
     } catch (e) {
       console.error(e);
@@ -65,6 +76,12 @@ export default function Plans({ user, navigateTo, refreshUser }) {
       
       {/* Hero Section */}
       <section className="text-center mb-12 space-y-4">
+        {unitName && (
+          <div className="inline-flex items-center gap-2 bg-tertiary-container/60 border border-tertiary/20 rounded-full px-4 py-1.5 mb-2">
+            <span className="material-symbols-outlined text-tertiary" style={{ fontSize: "16px" }}>location_on</span>
+            <span className="font-label-md text-tertiary font-semibold">{unitName}</span>
+          </div>
+        )}
         <h1 className="font-headline-lg text-headline-lg md:text-display-lg">
           Escolha seu <span className="amber-gradient-text">Lifestyle</span>
         </h1>
@@ -256,6 +273,103 @@ export default function Plans({ user, navigateTo, refreshUser }) {
           </div>
         </div>
       </section>
+
+      {/* Card de Pagamento & WhatsApp */}
+      {activePaymentPlan && (
+        <div className="fixed inset-0 z-50 bg-[#0a0a0c]/85 backdrop-blur-md flex items-center justify-center p-gutter animate-fade-in text-on-surface">
+          <div className="w-full max-w-md bg-surface-container border border-outline-variant/30 rounded-2xl p-lg shadow-2xl space-y-md text-center relative overflow-hidden">
+            {/* Ambient gold glow background */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-tertiary/10 rounded-full blur-2xl pointer-events-none" />
+            
+            {/* Icon */}
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-tertiary/10 border border-tertiary/20 text-tertiary shadow-lg shadow-tertiary/5 mb-sm">
+              <span className="material-symbols-outlined text-3xl">payments</span>
+            </div>
+
+            <div className="space-y-xs">
+              <h3 className="font-headline-md text-headline-sm text-on-surface">Dados para o pagamento</h3>
+              <p className="text-xs text-outline uppercase font-bold tracking-widest text-[10px]">
+                Envie o comprovante pelo WhatsApp
+              </p>
+            </div>
+
+            {/* Plan Info Card */}
+            <div className="bg-surface-container-high border border-outline-variant/20 rounded-xl p-md text-left space-y-sm">
+              <div className="flex justify-between items-baseline border-b border-outline-variant/10 pb-xs">
+                <span className="text-xs text-on-surface-variant font-medium">Plano Selecionado</span>
+                <span className="text-sm font-bold text-tertiary">{activePaymentPlan.name}</span>
+              </div>
+              <div className="flex justify-between items-baseline border-b border-outline-variant/10 pb-xs">
+                <span className="text-xs text-on-surface-variant font-medium">Valor Mensal</span>
+                <span className="text-body-lg font-bold text-on-surface">R$ {activePaymentPlan.price},00</span>
+              </div>
+              <div className="flex justify-between items-baseline border-b border-outline-variant/10 pb-xs">
+                <span className="text-xs text-on-surface-variant font-medium">Favorecido (PIX)</span>
+                <span className="text-xs font-semibold text-on-surface">{branding?.pixName || branding?.name || "AliJoy Studio"}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-outline-variant/10 pb-xs">
+                <span className="text-xs text-on-surface-variant font-medium">Chave PIX</span>
+                <div className="flex items-center gap-xs">
+                  <span className="text-xs font-mono font-bold text-on-surface select-all">{branding?.pixKey || "Não configurada"}</span>
+                  {branding?.pixKey && (
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(branding.pixKey);
+                        setPixCopied(true);
+                        setTimeout(() => setPixCopied(false), 2000);
+                      }}
+                      className="text-tertiary hover:text-tertiary-fixed-dim transition-colors flex items-center"
+                      title="Copiar Chave PIX"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">{pixCopied ? "done" : "content_copy"}</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="flex justify-between items-baseline">
+                <span className="text-xs text-on-surface-variant font-medium">WhatsApp do Dono</span>
+                <span className="text-xs font-semibold text-on-surface">{branding?.ownerPhone || branding?.address?.phone || "(19) 99999-9999"}</span>
+              </div>
+            </div>
+
+            <div className="p-xs bg-tertiary/5 border border-tertiary/10 rounded-lg text-[10px] text-on-surface-variant leading-relaxed">
+              * Sua assinatura ficará pendente no sistema e será liberada assim que o comprovante for verificado pelo administrador.
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-sm pt-sm">
+              <a
+                href={(() => {
+                  const rawPhone = branding?.ownerPhone || branding?.address?.phone || "19999999999";
+                  const phone = rawPhone.replace(/\D/g, "");
+                  const cleanPhone = phone.length === 10 || phone.length === 11 ? "55" + phone : phone;
+                  const text = encodeURIComponent(
+                    `Olá! Fiz a solicitação de assinatura do ${activePaymentPlan.name} (R$ ${activePaymentPlan.price},00) no ${branding?.name || "AliJoy Studio"}. Segue o comprovante de pagamento.`
+                  );
+                  return `https://wa.me/${cleanPhone}?text=${text}`;
+                })()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full bg-tertiary text-on-tertiary font-bold py-3.5 rounded-xl hover:brightness-110 active:scale-98 transition-all shadow-lg shadow-tertiary/20 uppercase tracking-widest font-label-md text-xs flex items-center justify-center gap-xs"
+              >
+                <span className="material-symbols-outlined text-sm">send</span>
+                Enviar Comprovante
+              </a>
+
+              <button
+                onClick={() => {
+                  setActivePaymentPlan(null);
+                  navigateTo("home");
+                }}
+                className="w-full text-center text-xs text-outline hover:text-on-surface py-2 font-medium transition-colors"
+              >
+                Concluir e Voltar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

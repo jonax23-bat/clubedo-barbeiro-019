@@ -321,18 +321,6 @@ export function getLocalTeamLogo(teamName) {
 
 const INITIAL_MOCK_DATA = {
   users: {
-    "ricardo_uid": {
-      uid: "ricardo_uid",
-      name: "Ricardo",
-      email: "ricardo@clubber.com.br",
-      password: "Club@2026",
-      role: "client",
-      xp: 1250,
-      coins: 450,
-      plan: "Plano VIP",
-      subscriptionStartDate: "2025-10-06T12:00:00.000Z", // Membro há cerca de 8 meses (referência Junho 2026)
-      avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuC_7VmemAsju7rKT9OMZo9i5ei905THnV-DThsOirKJLzVfTqkuynK6knXCPEHijk6X2WMcQQhcGLdMwJ1pi6mcUXdFOZbupd8XvAoNe4ff4vvcJgF6f4Uhxz30PaNFzDVRmpqfiAC31C6OdAUoSgZLMsCU1pMuQtc4UhEeCPaHSfc5_PMiNyQxQ0U0FOrj5OjOQBSL4L58mKfEKmIIy1QWZNKdgG4YX77LjKiwROKH2G1uIKxyaiD1JqWCZmcMNe_vzYcZwPy7_GT2"
-    },
     "admin": {
       uid: "admin",
       name: "Administrador",
@@ -345,271 +333,47 @@ const INITIAL_MOCK_DATA = {
       subscriptionStartDate: "2026-06-01T12:00:00.000Z",
       avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=60"
     },
-    "barber_victor": {
-      uid: "barber_victor",
-      name: "Victor Santos",
-      email: "victor.blade@royalblade.com",
-      password: "Club@2026",
-      role: "barber",
-      xp: 8500,
-      coins: 1200,
+    "dono": {
+      uid: "dono",
+      name: "Dono da Barbearia",
+      email: "dono@royalblade.com",
+      password: "dono123",
+      role: "owner",
+      xp: 0,
+      coins: 0,
       plan: "Plano Master",
-      subscriptionStartDate: "2024-06-06T12:00:00.000Z",
-      avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuAc0Llsos9v49-o0cTwCWilhTb7k9CfW3hmd-HpJYdbTGLh1vE0YaT6ViG1rx99nxywA82kXjiOXcnoEAZvvrY_f_8u7QQAWIOKUw5IK37D4oIkR5dTgy-4E6FAbvln8vYJVhRqXpN8J5Cb7W56oPfOsUt1g7pECiLMDx7V9Zw7bySRi6dJi0pgNQt2oRcC8RXZA7PBZ96XsaPK1dyIne_x9P-hQSiUu7RqdnWLUos1CIvu1JP7ETnsZcWinaFndBFciU8IAqp-CHcP"
-    },
-    "barber_marcus": {
-      uid: "barber_marcus",
-      name: "Marcus",
-      email: "marcus.barber@royalblade.com",
-      password: "Club@2026",
-      role: "barber",
-      xp: 15400,
-      coins: 3500,
-      plan: "Plano Master",
-      subscriptionStartDate: "2023-01-01T12:00:00.000Z",
-      avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuDZ0CPav-gnIQDEiwcDsYg_qMvKthGazxARaRkEpznaCpunMuYem50Q7lIDxErIw-NUuLRVYOJUE43qc23enTm_4ZSgzGsRRji3QzrZ0jZ4iNBz8H8tn6XlpeR52Id7B1PER90ghyrCz-Lt6ADHQ19ggii-Lm5GCfN-Ehy95XTi-yB_xRDBlgr0xtnp-1Lkmrcu0IAFE6Z4cfe5Ruc6cuA0bsDx0XghquDY4EScL1Gkvl9abyf3HjmRMfHICHD1k2hNS298FPH0cqUE"
-    },
-    "barber_leo": {
-      uid: "barber_leo",
-      name: "Leo",
-      email: "leo.barber@royalblade.com",
-      password: "Club@2026",
-      role: "barber",
-      xp: 8500,
-      coins: 1200,
-      plan: "Plano Master",
-      subscriptionStartDate: "2024-06-06T12:00:00.000Z",
-      avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuBLHQB8RNmtvCNNF7N98FGinjgQeKrr9mSw5lRB78q95vb8SldMv9hP34NyilYoo7g9V4NoO_ll1e6SOUVb3DQhPNaaM1WUzrPry1OmWIasmQYXzx3gz9N4eGtjnUqB_aUyU59jEs7AUgpMW9bMhhmUp_48ZtIekWWkEdCZ4NAhAE6V3KLRKqAppxsuF5gEKELAouCKNIItaBw7jEW2-m-zelRP3_Nlapy6ViZACfikfU_pzXyhOh4s4IElKVkWgN7n5YbejQ4QOoBa"
-    },
-    "barber_rodrigo": {
-      uid: "barber_rodrigo",
-      name: "Rodrigo",
-      email: "rodrigo.barber@royalblade.com",
-      password: "Club@2026",
-      role: "barber",
-      xp: 8500,
-      coins: 1200,
-      plan: "Plano Master",
-      subscriptionStartDate: "2024-06-06T12:00:00.000Z",
-      avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuAIZbhPfV06zujLm9IVdGUyy7FPZWgUh3T9sEP10xvapzQlTs0RDDAxWddVgcq1SoU0QY7M-gC2p9F7YuefRZhw5GOmuM9YNSSB5Yck_2flNCS3vM1kt80aI2UBjAj9_5p_lUDDuT1zQxlCkyKFDKfSkJW4P3EKSuVDjboBDTs6pxWOL4B0y34QuF4r5w2cLosNNGFzbbcKoig23cuiMxR2jm0k_zsgvJORdQhxnEmGdbo27913_EdXUCbND98wCuTnH2RRRkPcp9sl"
+      subscriptionStartDate: "2026-06-01T12:00:00.000Z",
+      avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=60"
     }
   },
-  appointments: [
-    {
-      id: "apt_1",
-      clientUid: "ricardo_uid",
-      clientName: "Ricardo",
-      barberUid: "barber_victor",
-      barberName: "Victor Santos",
-      date: "2026-06-09",
-      time: "18:00",
-      status: "scheduled",
-      type: "recurrent",
-      isGoldenHour: true,
-      xpBonus: 100,
-      services: ["Corte & Barba Premium"],
-      unitId: "unit_centro",
-      unitName: "Royal Blade Centro"
-    },
-    { id: "apt_completed_1", clientUid: "ricardo_uid", clientName: "Ricardo", barberUid: "barber_victor", barberName: "Victor Santos", date: "2026-06-01", time: "10:00", status: "completed", services: ["Corte de Cabelo"] },
-    { id: "apt_completed_2", clientUid: "ricardo_uid", clientName: "Ricardo", barberUid: "barber_victor", barberName: "Victor Santos", date: "2026-06-02", time: "10:00", status: "completed", services: ["Corte de Cabelo"] },
-    { id: "apt_completed_3", clientUid: "ricardo_uid", clientName: "Ricardo", barberUid: "barber_victor", barberName: "Victor Santos", date: "2026-06-03", time: "10:00", status: "completed", services: ["Corte de Cabelo"] },
-    { id: "apt_completed_4", clientUid: "ricardo_uid", clientName: "Ricardo", barberUid: "barber_victor", barberName: "Victor Santos", date: "2026-06-04", time: "10:00", status: "completed", services: ["Corte de Cabelo"] }
-  ],
-  barbers: [
-    {
-      uid: "barber_marcus",
-      name: "Marcus",
-      role: "Master Barber",
-      avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuDZ0CPav-gnIQDEiwcDsYg_qMvKthGazxARaRkEpznaCpunMuYem50Q7lIDxErIw-NUuLRVYOJUE43qc23enTm_4ZSgzGsRRji3QzrZ0jZ4iNBz8H8tn6XlpeR52Id7B1PER90ghyrCz-Lt6ADHQ19ggii-Lm5GCfN-Ehy95XTi-yB_xRDBlgr0xtnp-1Lkmrcu0IAFE6Z4cfe5Ruc6cuA0bsDx0XghquDY4EScL1Gkvl9abyf3HjmRMfHICHD1k2hNS298FPH0cqUE",
-      rating: 4.9,
-      cutsThisMonth: 142,
-      boldProgress: 82,
-      status: "busy",
-      bio: "Especialista em barba clássica e tratamentos premium com toalha quente.",
-      login: "marcus.barber",
-      password: "Club@2026",
-      unitIds: ["unit_centro"],
-      specialties: [
-        { name: "Corte Royal", time: "45 min", price: 90, icon: "content_cut", type: "regular" },
-        { name: "Barba Terapia", time: "30 min", price: 60, icon: "face", type: "regular" },
-        { name: "Pigmentação Premium", time: "60 min", price: 120, icon: "brush", type: "specialist" }
-      ],
-      scheduleConfig: {
-        start: "09:00",
-        end: "19:00",
-        lunchStart: "12:00",
-        lunchEnd: "13:00",
-        interval: 15
-      }
-    },
-    {
-      uid: "barber_leo",
-      name: "Leo",
-      role: "Fade Specialist",
-      avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuBLHQB8RNmtvCNNF7N98FGinjgQeKrr9mSw5lRB78q95vb8SldMv9hP34NyilYoo7g9V4NoO_ll1e6SOUVb3DQhPNaaM1WUzrPry1OmWIasmQYXzx3gz9N4eGtjnUqB_aUyU59jEs7AUgpMW9bMhhmUp_48ZtIekWWkEdCZ4NAhAE6V3KLRKqAppxsuF5gEKELAouCKNIItaBw7jEW2-m-zelRP3_Nlapy6ViZACfikfU_pzXyhOh4s4IElKVkWgN7n5YbejQ4QOoBa",
-      rating: 5.0,
-      cutsThisMonth: 98,
-      goalProgress: 55,
-      status: "online",
-      bio: "Especialista em cortes degradê modernos, riscos e estilos urbanos.",
-      login: "leo.barber",
-      password: "Club@2026",
-      unitIds: ["unit_centro", "unit_batel"],
-      specialties: [
-        { name: "Corte Royal", time: "30 min", price: 90, icon: "content_cut", type: "regular" },
-        { name: "Barba Terapia", time: "30 min", price: 60, icon: "face", type: "regular" },
-        { name: "Sobrancelha", time: "15 min", price: 30, icon: "clean_hands", type: "regular" }
-      ],
-      scheduleConfig: {
-        start: "09:00",
-        end: "19:00",
-        lunchStart: "12:30",
-        lunchEnd: "13:30",
-        interval: 15
-      }
-    },
-    {
-      uid: "barber_rodrigo",
-      name: "Rodrigo",
-      role: "Classic Cuts",
-      avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuAIZbhPfV06zujLm9IVdGUyy7FPZWgUh3T9sEP10xvapzQlTs0RDDAxWddVgcq1SoU0QY7M-gC2p9F7YuefRZhw5GOmuM9YNSSB5Yck_2flNCS3vM1kt80aI2UBjAj9_5p_lUDDuT1zQxlCkyKFDKfSkJW4P3EKSuVDjboBDTs6pxWOL4B0y34QuF4r5w2cLosNNGFzbbcKoig23cuiMxR2jm0k_zsgvJORdQhxnEmGdbo27913_EdXUCbND98wCuTnH2RRRkPcp9sl",
-      rating: 4.8,
-      cutsThisMonth: 115,
-      goalProgress: 68,
-      status: "off-duty",
-      bio: "Dedicado a cortes clássicos de tesoura, designs vintage e barba tradicional.",
-      login: "rodrigo.barber",
-      password: "Club@2026",
-      unitIds: ["unit_batel"],
-      specialties: [
-        { name: "Corte Royal", time: "45 min", price: 90, icon: "content_cut", type: "regular" },
-        { name: "Barba Terapia", time: "30 min", price: 60, icon: "face", type: "regular" }
-      ],
-      scheduleConfig: {
-        start: "10:00",
-        end: "20:00",
-        lunchStart: "13:00",
-        lunchEnd: "14:00",
-        interval: 15
-      }
-    },
-    {
-      uid: "barber_victor",
-      name: "Victor Santos",
-      role: "Master Barber",
-      avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuAc0Llsos9v49-o0cTwCWilhTb7k9CfW3hmd-HpJYdbTGLh1vE0YaT6ViG1rx99nxywA82kXjiOXcnoEAZvvrY_f_8u7QQAWIOKUw5IK37D4oIkR5dTgy-4E6FAbvln8vYJVhRqXpN8J5Cb7W56oPfOsUt1g7pECiLMDx7V9Zw7bySRi6dJi0pgNQt2oRcC8RXZA7PBZ96XsaPK1dyIne_x9P-hQSiUu7RqdnWLUos1CIvu1JP7ETnsZcWinaFndBFciU8IAqp-CHcP",
-      rating: 4.9,
-      cutsThisMonth: 142,
-      goalProgress: 85,
-      status: "online",
-      bio: "Master Barber experiente. Especialista em visagismo e pigmentações de alta definição.",
-      login: "victor.barber",
-      password: "Club@2026",
-      unitIds: ["unit_centro"],
-      specialties: [
-        { name: "Corte Royal", time: "45 min", price: 90, icon: "content_cut", type: "regular" },
-        { name: "Barba Terapia", time: "30 min", price: 60, icon: "face", type: "regular" },
-        { name: "Pigmentação Premium", time: "60 min", price: 120, icon: "brush", type: "specialist" },
-        { name: "Sobrancelha", time: "15 min", price: 30, icon: "clean_hands", type: "regular" }
-      ],
-      scheduleConfig: {
-        start: "09:00",
-        end: "19:00",
-        lunchStart: "12:00",
-        lunchEnd: "13:00",
-        interval: 15
-      }
-    }
-  ],
-  posts: [
-    {
-      id: "post_1",
-      authorName: "Clubber Barbershop",
-      authorAvatar: null,
-      content: "Nova cerveja artesanal disponível! Chegou a 'Sharp Edge IPA', criada especialmente para nossos membros. Venha experimentar no seu próximo corte. 🍻",
-      likes: [],
-      commentsCount: 0,
-      createdAt: new Date().toISOString(),
-      isOfficial: true
-    }
-  ],
-  leaderboard: [
-    { name: "Ricardo", xp: 1250, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuC_7VmemAsju7rKT9OMZo9i5ei905THnV-DThsOirKJLzVfTqkuynK6knXCPEHijk6X2WMcQQhcGLdMwJ1pi6mcUXdFOZbupd8XvAoNe4ff4vvcJgF6f4Uhxz30PaNFzDVRmpqfiAC31C6OdAUoSgZLMsCU1pMuQtc4UhEeCPaHSfc5_PMiNyQxQ0U0FOrj5OjOQBSL4L58mKfEKmIIy1QWZNKdgG4YX77LjKiwROKH2G1uIKxyaiD1JqWCZmcMNe_vzYcZwPy7_GT2" }
-  ],
+  appointments: [],
+  barbers: [],
+  posts: [],
+  leaderboard: [],
   bets: [],
   betting_leaderboard: [],
   comments: [],
-  messages: [
-    {
-      id: "msg_1",
-      senderUid: "barber_victor",
-      senderName: "Victor Santos",
-      receiverUid: "ricardo_uid",
-      receiverName: "Ricardo",
-      content: "Olá Ricardo! Lembrete do seu agendamento de cabelo e barba amanhã às 18:00. Alguma preferência especial de corte para essa sessão?",
-      createdAt: new Date(Date.now() - 7200000).toISOString()
-    },
-    {
-      id: "msg_2",
-      senderUid: "ricardo_uid",
-      senderName: "Ricardo",
-      receiverUid: "barber_victor",
-      receiverName: "Victor Santos",
-      content: "Fala Victor! Quero sim, vamos mandar aquele fade clássico e na barba fazer apenas o alinhamento da linha das bochechas.",
-      createdAt: new Date(Date.now() - 5400000).toISOString()
-    }
-  ],
-  services: [
-    { id: "cabelo", name: "Corte de Cabelo", price: 50, xp: 50, duration: "30 min", icon: "content_cut", type: "regular" },
-    { id: "barba", name: "Barba Completa", price: 40, xp: 40, duration: "25 min", icon: "face", type: "regular" },
-    { id: "cabelo_barba", name: "Corte & Barba Premium", price: 80, xp: 100, duration: "50 min", icon: "brush", type: "regular" }
-  ],
-  // --- NOVAS ENTIDADES ---
-  units: [
-    {
-      id: "unit_centro",
-      name: "Royal Blade Centro",
-      address: "Rua XV de Novembro, 100 - Centro",
-      phone: "(41) 99999-0000",
-      logoUrl: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=150&auto=format&fit=crop&q=60"
-    },
-    {
-      id: "unit_batel",
-      name: "Royal Blade Batel",
-      address: "Avenida do Batel, 1500 - Batel",
-      phone: "(41) 98888-1111",
-      logoUrl: "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=150&auto=format&fit=crop&q=60"
-    }
-  ],
+  messages: [],
+  services: [],
+  units: [],
   branding: {
-    name: "Clubber Barbershop",
-    logoUrl: "",
+    name: "AliJoy Studio",
+    logoUrl: "/logo-alijoy.jpg",
     address: {
-      street: "Rua XV de Novembro",
-      number: "100",
-      complement: "Sala 3",
-      neighborhood: "Centro",
-      city: "Curitiba",
-      state: "PR",
-      zip: "80020-000",
-      phone: "(41) 99999-0000",
-      mapsUrl: "https://maps.google.com"
+      street: "",
+      number: "",
+      complement: "",
+      neighborhood: "",
+      city: "",
+      state: "",
+      zip: "",
+      phone: "",
+      mapsUrl: ""
     }
   },
-  transactions: [
-    { id: "tx_1", type: "revenue", amount: 80, description: "Corte & Barba Premium (Apt apt_1)", date: "2026-06-05", category: "appointment" },
-    { id: "tx_2", type: "revenue", amount: 50, description: "Venda Pomada Modeladora", date: "2026-06-05", category: "product" }
-  ],
-  expenses: [
-    { id: "exp_1", category: "fixed", amount: 1200, description: "Aluguel Centro", date: "2026-06-01", recurring: true },
-    { id: "exp_2", category: "variable", amount: 350, description: "Produtos descartáveis", date: "2026-06-03", recurring: false }
-  ],
-  storeItems: [
-    { id: "item_1", name: "Pomada Modeladora Premium", price: 200, description: "Fixação forte e efeito fosco para todos os tipos de cabelo.", imageUrl: "https://images.unsplash.com/photo-1608248597279-f99d160bfcbc?w=150&auto=format&fit=crop&q=60", category: "products", stock: 15, active: true },
-    { id: "item_2", name: "Desconto de 20% no Corte", price: 150, description: "Cupom de desconto válido para qualquer unidade no seu próximo corte.", imageUrl: "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=150&auto=format&fit=crop&q=60", category: "discounts", stock: 999, active: true },
-    { id: "item_3", name: "Cerveja Clubber IPA", price: 80, description: "Cerveja artesanal exclusiva Clubber Barbershop (350ml).", imageUrl: "https://images.unsplash.com/photo-1600788886242-5c96aabe3757?w=150&auto=format&fit=crop&q=60", category: "experiences", stock: 20, active: true }
-  ],
+  transactions: [],
+  expenses: [],
+  storeItems: [],
   redemptions: [],
   monitoredLeagues: [
     { id: "league_BSA", name: "Brasileirão Série A", active: true },
@@ -661,8 +425,8 @@ const setLocalStorage = (key, value) => {
 };
 
 const initMockStorage = () => {
-  // Força reset para o teste de estresse
-  if (!getLocalStorage("stress_test_reset_v3")) {
+  // Força reset total para a versão de produção (limpa dados de testes antigos do local storage)
+  if (!getLocalStorage("production_release_v2")) {
     setLocalStorage("users", INITIAL_MOCK_DATA.users);
     setLocalStorage("appointments", INITIAL_MOCK_DATA.appointments);
     setLocalStorage("barbers", INITIAL_MOCK_DATA.barbers);
@@ -671,13 +435,23 @@ const initMockStorage = () => {
     setLocalStorage("bets", INITIAL_MOCK_DATA.bets);
     setLocalStorage("betting_leaderboard", INITIAL_MOCK_DATA.betting_leaderboard);
     setLocalStorage("comments", INITIAL_MOCK_DATA.comments);
-    setLocalStorage("redemptions", []);
-    setLocalStorage("conversionHistory", []);
-    setLocalStorage("stress_test_reset_v3", true);
+    setLocalStorage("messages", INITIAL_MOCK_DATA.messages);
+    setLocalStorage("services", INITIAL_MOCK_DATA.services);
+    setLocalStorage("units", INITIAL_MOCK_DATA.units);
+    setLocalStorage("branding", INITIAL_MOCK_DATA.branding);
+    setLocalStorage("transactions", INITIAL_MOCK_DATA.transactions);
+    setLocalStorage("expenses", INITIAL_MOCK_DATA.expenses);
+    setLocalStorage("storeItems", INITIAL_MOCK_DATA.storeItems);
+    setLocalStorage("redemptions", INITIAL_MOCK_DATA.redemptions);
+    setLocalStorage("monitoredLeagues", INITIAL_MOCK_DATA.monitoredLeagues);
+    setLocalStorage("bolaoGames", INITIAL_MOCK_DATA.bolaoGames);
+    setLocalStorage("conversionHistory", INITIAL_MOCK_DATA.conversionHistory);
+    setLocalStorage("planConfigs", INITIAL_MOCK_DATA.planConfigs);
     setLocalStorage("initialized", true);
+    setLocalStorage("production_release_v2", true);
   }
 
-  // Inicializa se não estiver setado
+  // Inicializa se não estiver setado (fallback adicional)
   if (!getLocalStorage("initialized")) {
     setLocalStorage("users", INITIAL_MOCK_DATA.users);
     setLocalStorage("appointments", INITIAL_MOCK_DATA.appointments);
@@ -804,6 +578,12 @@ const initMockStorage = () => {
       }
     }
 
+    // Ensure dono password is sync to dono123
+    if (users["dono"] && users["dono"].password !== "dono123") {
+      users["dono"].password = "dono123";
+      updatedUsers = true;
+    }
+
     // Ensure all users have a password set to default
     for (const uid in users) {
       if (!users[uid].password) {
@@ -814,6 +594,39 @@ const initMockStorage = () => {
 
     if (updatedUsers) {
       setLocalStorage("users", users);
+    }
+    // 3. Sincronizar especialidades dos barbeiros com a coleção global de serviços
+    try {
+      const barbers = getLocalStorage("barbers") || [];
+      const existingServices = getLocalStorage("services") || [];
+      let updatedServices = [...existingServices];
+      let needsSave = false;
+
+      for (const barber of barbers) {
+        const specs = barber.specialties || [];
+        for (const spec of specs) {
+          const alreadyExists = updatedServices.some(s => s.name === spec.name);
+          if (!alreadyExists) {
+            updatedServices.push({
+              id: "service_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+              name: spec.name,
+              price: spec.price,
+              duration: spec.time || "30 min",
+              icon: spec.icon || "content_cut",
+              type: spec.type || "regular",
+              xp: parseInt(spec.price) || 50
+            });
+            needsSave = true;
+          }
+        }
+      }
+
+      if (needsSave) {
+        setLocalStorage("services", updatedServices);
+        console.log(`Migração: ${updatedServices.length - existingServices.length} serviço(s) sincronizado(s) da especialidade dos barbeiros para a coleção global.`);
+      }
+    } catch (err) {
+      console.warn("Falha ao migrar especialidades dos barbeiros:", err);
     }
   } catch (err) {
     console.warn("Falha ao migrar dados de local storage:", err);
@@ -839,7 +652,10 @@ export const dbService = {
           console.log("[Firebase Sync] Sincronizando usuários iniciais...");
           const localUsers = getLocalStorage("users") || {};
           for (const [uid, userObj] of Object.entries(localUsers)) {
-            const { password, ...firestoreUser } = userObj;
+            const { password: _, ...firestoreUser } = userObj;
+            if (firestoreUser.role === "client" && firestoreUser.unitId === undefined) {
+              firestoreUser.unitId = null;
+            }
             await setDoc(doc(db, "users", uid), firestoreUser);
             await setDoc(doc(db, "leaderboard", uid), {
               name: userObj.name,
@@ -897,40 +713,8 @@ export const dbService = {
           }
         }
 
-        // 6. Cadastrar usuário do Google pré-existente se estiver faltando no Firestore
-        const googleUserUid = "pNYbNMcvIfO3QTiJHPAk7tg2eOf1";
-        const gUserRef = doc(db, "users", googleUserUid);
-        const gUserSnap = await getDoc(gUserRef);
-        if (!gUserSnap.exists()) {
-          console.log("[Firebase Sync] Cadastrando usuário do Google pré-existente...");
-          const gUserObj = {
-            uid: googleUserUid,
-            name: "jonasx23 Xbox",
-            email: "mc.jon.b8@gmail.com",
-            role: "client",
-            xp: 0,
-            coins: 0,
-            plan: null,
-            subscriptionStartDate: null,
-            avatarUrl: "https://lh3.googleusercontent.com/a/ACg8ocIqLFmMeH2dc8BSUw8QVkkalRjaTaRhl5Xe-p0p4cY28EUSN3Cpww=s96-c",
-            createdAt: new Date().toISOString()
-          };
-          await setDoc(gUserRef, gUserObj);
-
-          // Adiciona ao leaderboard de XP no Firestore
-          await setDoc(doc(db, "leaderboard", googleUserUid), {
-            name: gUserObj.name,
-            xp: gUserObj.xp,
-            avatar: gUserObj.avatarUrl
-          });
-
-          // Sincroniza localmente
-          const localUsers = getLocalStorage("users") || {};
-          localUsers[googleUserUid] = gUserObj;
-          setLocalStorage("users", localUsers);
-          
-          console.log("[Firebase Sync] Usuário do Google pré-existente cadastrado com sucesso.");
-        }
+        // 6. Sincronização automática do Google desativada na entrega
+        console.log("[Firebase Sync] Usuário pré-existente do Google desativado para a entrega limpa.");
         
         console.log("[Firebase Sync] Sincronização de inicialização concluída.");
       } catch (e) {
@@ -985,6 +769,7 @@ export const dbService = {
             xp: 0,
             coins: 0,
             plan: null,
+            unitId: null,
             subscriptionStartDate: null,
             avatarUrl: user.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=60",
             createdAt: new Date().toISOString()
@@ -1097,111 +882,115 @@ export const dbService = {
   },
 
   login: async (loginOrEmail, password) => {
+    const queryStr = String(loginOrEmail || '').trim().toLowerCase();
     const users = getLocalStorage("users") || {};
     const barbers = getLocalStorage("barbers") || [];
-    
-    const queryStr = String(loginOrEmail).trim().toLowerCase();
-    
-    // 1. Search in users map (covers clients, owners, and synchronized barbers)
-    let user = Object.values(users).find(u => 
-      String(u.email || '').toLowerCase() === queryStr || 
-      String(u.uid || '').toLowerCase() === queryStr
-    );
-    
-    // 2. Search in barbers list if not found yet (covers barbers by login or email)
-    if (!user) {
-      const barber = barbers.find(b => 
-        String(b.login || '').toLowerCase() === queryStr || 
-        String(b.email || '').toLowerCase() === queryStr
-      );
-      if (barber) {
-        user = users[barber.uid];
-        if (!user) {
-          // Sync/auto-register barber to the users map
-          user = {
-            uid: barber.uid,
-            name: barber.name,
-            email: barber.email || `${barber.login}@royalblade.com`,
-            role: "barber",
-            xp: barber.xp || 8500,
-            coins: barber.coins || 1200,
-            plan: "Plano Master",
-            subscriptionStartDate: "2024-06-06T12:00:00.000Z",
-            avatarUrl: barber.avatarUrl,
-            password: barber.password || "Club@2026"
-          };
-          users[barber.uid] = user;
-          setLocalStorage("users", users);
+
+    if (isRealFirebase()) {
+      // 1. Resolve o e-mail de autenticação correto para Firebase Auth
+      let targetEmail = "";
+      let matchedLocalUser = null;
+
+      if (queryStr.includes("@")) {
+        targetEmail = queryStr;
+      } else if (queryStr === "dono") {
+        targetEmail = "dono@royalblade.com";
+      } else if (queryStr === "admin") {
+        targetEmail = "admin@royalblade.com";
+      } else {
+        // Tenta achar em barbers
+        const barber = barbers.find(b =>
+          String(b.login || '').toLowerCase() === queryStr ||
+          String(b.email || '').toLowerCase() === queryStr
+        );
+        if (barber) {
+          targetEmail = barber.email || `${barber.login}@royalblade.com`;
+        } else {
+          // Tenta achar em users
+          const u = Object.values(users).find(u =>
+            String(u.email || '').toLowerCase() === queryStr ||
+            String(u.uid || '').toLowerCase() === queryStr ||
+            String(u.login || '').toLowerCase() === queryStr
+          );
+          if (u && u.email) {
+            targetEmail = u.email;
+            matchedLocalUser = u;
+          } else {
+            targetEmail = `${queryStr}@royalblade.com`;
+          }
         }
       }
-    }
-    
-    if (!user) {
-      throw new Error("USER_NOT_FOUND");
-    }
-    
-    const userPassword = user.password || "Club@2026";
-    if (userPassword !== password) {
-      throw new Error("INCORRECT_PASSWORD");
-    }
-    
-    if (isRealFirebase()) {
-      // Firebase Auth exige senha com no mínimo 6 caracteres.
-      // Para senhas locais curtas (ex: "admin"), derivamos uma senha mais longa para o Auth.
+
+      // Senha do Firebase (mínimo 6 caracteres)
       const firebasePassword = password.length >= 6 ? password : password + "_Cb!26";
-      
+
       try {
-        let userCredential;
+        let userCredential = null;
         try {
-          // Tenta fazer login no Firebase Auth
-          userCredential = await signInWithEmailAndPassword(auth, user.email, firebasePassword);
+          userCredential = await signInWithEmailAndPassword(auth, targetEmail, firebasePassword);
         } catch (signInErr) {
-          // Se o erro for de usuário não encontrado, registramos no Auth automaticamente
-          if (signInErr.code === "auth/user-not-found" || signInErr.code === "auth/invalid-credential") {
-            console.log(`[dbService] Criando usuário no Firebase Auth para ${user.email}...`);
+          // Se falhou e a senha testada tinha sufixo, tenta a senha crua
+          if ((signInErr.code === "auth/invalid-credential" || signInErr.code === "auth/wrong-password") && firebasePassword !== password) {
             try {
-              userCredential = await createUserWithEmailAndPassword(auth, user.email, firebasePassword);
-              await updateProfile(userCredential.user, { displayName: user.name });
-              
-              // Garante que o documento dele existe no Firestore com a role correta
-              const userRef = doc(db, "users", userCredential.user.uid);
-              const { password: _, ...firestoreUser } = user;
-              firestoreUser.uid = userCredential.user.uid;
-              await setDoc(userRef, firestoreUser);
-              
-              await setDoc(doc(db, "leaderboard", userCredential.user.uid), {
-                name: user.name,
-                xp: user.xp || 0,
-                avatar: user.avatarUrl || ""
-              });
-              
-              console.log(`[dbService] Usuário ${user.email} criado no Firebase Auth com uid: ${userCredential.user.uid}`);
-            } catch (createErr) {
-              console.error("Erro ao registrar usuário no Firebase Auth:", createErr.code, createErr.message);
+              userCredential = await signInWithEmailAndPassword(auth, targetEmail, password);
+            } catch (retryErr) {
+              throw new Error("INCORRECT_PASSWORD");
             }
+          } else if (signInErr.code === "auth/invalid-credential" || signInErr.code === "auth/wrong-password") {
+            throw new Error("INCORRECT_PASSWORD");
+          } else if (signInErr.code === "auth/user-not-found") {
+            // Auto-cria conta no Auth para usuários padrão se ainda não existirem
+            const fallbackUser = Object.values(users).find(u =>
+              String(u.email || '').toLowerCase() === targetEmail.toLowerCase()
+            ) || (targetEmail === "dono@royalblade.com" ? INITIAL_MOCK_DATA.users.dono : null)
+              || (targetEmail === "admin@royalblade.com" ? INITIAL_MOCK_DATA.users.admin : null);
+
+            if (fallbackUser) {
+              try {
+                userCredential = await createUserWithEmailAndPassword(auth, targetEmail, firebasePassword);
+                await updateProfile(userCredential.user, { displayName: fallbackUser.name });
+              } catch (crErr) {
+                throw new Error("USER_NOT_FOUND");
+              }
+            } else {
+              throw new Error("USER_NOT_FOUND");
+            }
+          } else if (signInErr.code === "auth/invalid-email") {
+            throw new Error("USER_NOT_FOUND");
           } else {
             throw signInErr;
           }
         }
-        
+
         if (userCredential) {
           const firebaseUid = userCredential.user.uid;
           const docRef = doc(db, "users", firebaseUid);
           const docSnap = await getDoc(docRef);
           let finalUser;
+
           if (docSnap.exists()) {
             finalUser = docSnap.data();
-            // Garante que a role esteja correta (caso o documento exista mas sem role)
-            if (!finalUser.role && user.role) {
-              finalUser.role = user.role;
-              await updateDoc(docRef, { role: user.role });
+            // Garante role correta para dono ou admin
+            if ((targetEmail === "dono@royalblade.com" || targetEmail === "admin@royalblade.com") && finalUser.role !== "owner") {
+              finalUser.role = "owner";
+              await updateDoc(docRef, { role: "owner" });
             }
           } else {
+            const role = (targetEmail === "dono@royalblade.com" || targetEmail === "admin@royalblade.com")
+              ? "owner"
+              : (matchedLocalUser?.role || "client");
+
             finalUser = {
-              ...user,
-              uid: firebaseUid
+              uid: firebaseUid,
+              name: userCredential.user.displayName || (matchedLocalUser?.name) || (targetEmail === "dono@royalblade.com" ? "Dono da Barbearia" : "Administrador"),
+              email: targetEmail,
+              role: role,
+              xp: 0,
+              coins: 0,
+              plan: "Plano Master",
+              avatarUrl: userCredential.user.photoURL || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=60",
+              createdAt: new Date().toISOString()
             };
-            delete finalUser.password;
             await setDoc(docRef, finalUser);
             await setDoc(doc(db, "leaderboard", firebaseUid), {
               name: finalUser.name,
@@ -1209,28 +998,43 @@ export const dbService = {
               avatar: finalUser.avatarUrl || ""
             });
           }
-          
+
           // Sincroniza localmente
           const localUsers = getLocalStorage("users") || {};
           localUsers[firebaseUid] = finalUser;
-          if (user.uid !== firebaseUid) {
-            delete localUsers[user.uid];
-          }
           setLocalStorage("users", localUsers);
-          
+          localStorage.setItem("clubber_current_user", JSON.stringify(finalUser));
+
           return finalUser;
         }
       } catch (authErr) {
         console.error("Erro na autenticação Firebase no login:", authErr);
-        if (authErr.code === "auth/wrong-password" || authErr.code === "auth/invalid-credential") {
+        if (authErr.message === "INCORRECT_PASSWORD" || authErr.code === "auth/wrong-password" || authErr.code === "auth/invalid-credential") {
           throw new Error("INCORRECT_PASSWORD");
         }
-        if (authErr.code === "auth/invalid-email") {
+        if (authErr.message === "USER_NOT_FOUND" || authErr.code === "auth/user-not-found" || authErr.code === "auth/invalid-email") {
           throw new Error("USER_NOT_FOUND");
         }
+        throw authErr;
       }
     }
-    
+
+    // Modo Mock Offline (fallback)
+    let user = Object.values(users).find(u => 
+      String(u.email || '').toLowerCase() === queryStr || 
+      String(u.uid || '').toLowerCase() === queryStr
+    );
+    if (!user) {
+      const barber = barbers.find(b => 
+        String(b.login || '').toLowerCase() === queryStr || 
+        String(b.email || '').toLowerCase() === queryStr
+      );
+      if (barber) user = users[barber.uid] || barber;
+    }
+    if (!user) throw new Error("USER_NOT_FOUND");
+    const userPassword = user.password || "Club@2026";
+    if (userPassword !== password) throw new Error("INCORRECT_PASSWORD");
+    localStorage.setItem("clubber_current_user", JSON.stringify(user));
     return user;
   },
 
@@ -1291,7 +1095,7 @@ export const dbService = {
         querySnapshot.forEach((doc) => {
           apts.push({ id: doc.id, ...doc.data() });
         });
-        if (apts.length > 0) return apts;
+        return apts;
       } catch (e) {
         console.warn("Firestore error, falling back to mock", e);
       }
@@ -1309,13 +1113,29 @@ export const dbService = {
         querySnapshot.forEach((doc) => {
           apts.push({ id: doc.id, ...doc.data() });
         });
-        if (apts.length > 0) return apts;
+        return apts;
       } catch (e) {
         console.warn("Firestore error, falling back to mock", e);
       }
     }
     const appointments = getLocalStorage("appointments") || [];
     return appointments.filter(a => a.barberUid === barberUid);
+  },
+
+  getAllAppointments: async () => {
+    if (isRealFirebase()) {
+      try {
+        const querySnapshot = await getDocs(collection(db, "appointments"));
+        const list = [];
+        querySnapshot.forEach((doc) => {
+          list.push({ id: doc.id, ...doc.data() });
+        });
+        return list;
+      } catch (e) {
+        console.warn("Firestore error, falling back to mock", e);
+      }
+    }
+    return getLocalStorage("appointments") || [];
   },
 
   confirmClientPresence: async (appointmentId) => {
@@ -1396,6 +1216,19 @@ export const dbService = {
       category: "appointment"
     });
 
+    // --- Gatilho de Notificação de Presença ---
+    try {
+      await dbService.createNotification({
+        recipientUid: appointment.clientUid,
+        title: "Presença Confirmada! 🎉",
+        body: `Sua presença com o profissional ${appointment.barberName} no dia ${appointment.date} às ${appointment.time} foi confirmada! Você ganhou +${xpEarned} XP e +${coinsEarned} Coins.`,
+        type: "presence_confirmed",
+        metadata: { appointmentId: appointment.id, date: appointment.date, time: appointment.time }
+      });
+    } catch (errNotif) {
+      console.warn("Erro ao gerar notificação de presença confirmada:", errNotif);
+    }
+
     return appointment;
   },
 
@@ -1409,32 +1242,169 @@ export const dbService = {
     if (isRealFirebase()) {
       try {
         await setDoc(doc(db, "appointments", newApt.id), newApt);
-        return newApt;
       } catch (e) {
         console.warn("Firestore error, falling back to mock", e);
+        const appointments = getLocalStorage("appointments") || [];
+        appointments.push(newApt);
+        setLocalStorage("appointments", appointments);
       }
+    } else {
+      const appointments = getLocalStorage("appointments") || [];
+      appointments.push(newApt);
+      setLocalStorage("appointments", appointments);
     }
 
-    const appointments = getLocalStorage("appointments") || [];
-    appointments.push(newApt);
-    setLocalStorage("appointments", appointments);
+    // --- Gatilhos de Notificação ---
+    try {
+      // 1. Notificar Barbeiro
+      await dbService.createNotification({
+        recipientUid: newApt.barberUid,
+        title: "Novo Agendamento! 📅",
+        body: `Cliente ${newApt.clientName} agendou ${newApt.services.join(", ")} para o dia ${newApt.date} às ${newApt.time}.`,
+        type: "booking_created",
+        metadata: { appointmentId: newApt.id, date: newApt.date, time: newApt.time }
+      });
+
+      // 2. Notificar Cliente
+      await dbService.createNotification({
+        recipientUid: newApt.clientUid,
+        title: "Agendamento Confirmado! ✅",
+        body: `Seu agendamento de ${newApt.services.join(", ")} com o profissional ${newApt.barberName} no dia ${newApt.date} às ${newApt.time} foi registrado.`,
+        type: "booking_created",
+        metadata: { appointmentId: newApt.id, date: newApt.date, time: newApt.time }
+      });
+    } catch (errNotif) {
+      console.warn("Erro ao gerar notificações de agendamento:", errNotif);
+    }
+
     return newApt;
   },
 
   cancelAppointment: async (id) => {
+    let appointment = null;
+    let isMock = true;
+
     if (isRealFirebase()) {
       try {
         const docRef = doc(db, "appointments", id);
-        await updateDoc(docRef, { status: "cancelled" });
-        return true;
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          appointment = { id: docSnap.id, ...docSnap.data() };
+          isMock = false;
+        }
       } catch (e) {
-        console.warn("Firestore error, falling back to mock", e);
+        console.warn("Firestore error reading appointment for cancel, falling back to mock", e);
+      }
+    }
+
+    if (!appointment) {
+      const appointments = getLocalStorage("appointments") || [];
+      appointment = appointments.find(a => a.id === id);
+    }
+
+    if (!appointment) return false;
+
+    const currentUserStr = localStorage.getItem("clubber_current_user");
+    if (!currentUserStr) return false;
+    const parsedUser = JSON.parse(currentUserStr);
+
+    if (parsedUser.role !== "owner" && 
+        parsedUser.uid !== appointment.clientUid && 
+        parsedUser.uid !== appointment.barberUid) {
+      console.warn("[cancelAppointment] Acesso negado: Usuário não tem permissão para cancelar.");
+      return false;
+    }
+
+    appointment.status = "cancelled";
+
+    if (!isMock) {
+      try {
+        const docRef = doc(db, "appointments", id);
+        await updateDoc(docRef, { status: "cancelled" });
+      } catch (e) {
+        console.warn("Firestore error updating appointment to cancelled", e);
+      }
+    } else {
+      const appointments = getLocalStorage("appointments") || [];
+      const updated = appointments.map(a => a.id === id ? { ...a, status: "cancelled" } : a);
+      setLocalStorage("appointments", updated);
+    }
+
+    // --- Gatilho de Notificação de Cancelamento ---
+    try {
+      const currentUserStr = localStorage.getItem("clubber_current_user");
+      let cancellerUid = "";
+      let cancellerRole = "";
+      if (currentUserStr) {
+        const parsed = JSON.parse(currentUserStr);
+        cancellerUid = parsed.uid;
+        cancellerRole = parsed.role;
+      }
+
+      if (cancellerUid === appointment.clientUid || cancellerRole === "client") {
+        await dbService.createNotification({
+          recipientUid: appointment.barberUid,
+          title: "Agendamento Cancelado ❌",
+          body: `O cliente ${appointment.clientName} cancelou o agendamento de ${appointment.services.join(", ")} no dia ${appointment.date} às ${appointment.time}.`,
+          type: "booking_cancelled",
+          metadata: { appointmentId: appointment.id, date: appointment.date, time: appointment.time }
+        });
+      } else {
+        await dbService.createNotification({
+          recipientUid: appointment.clientUid,
+          title: "Agendamento Cancelado ❌",
+          body: `Seu agendamento de ${appointment.services.join(", ")} no dia ${appointment.date} às ${appointment.time} com o profissional ${appointment.barberName} foi cancelado pela barbearia.`,
+          type: "booking_cancelled",
+          metadata: { appointmentId: appointment.id, date: appointment.date, time: appointment.time }
+        });
+      }
+    } catch (errNotif) {
+      console.warn("Erro ao gerar notificações de cancelamento:", errNotif);
+    }
+
+    return true;
+  },
+
+  deleteAppointment: async (id) => {
+    if (isRealFirebase()) {
+      try {
+        await deleteDoc(doc(db, "appointments", id));
+      } catch (e) {
+        console.warn("Firestore error deleting appointment, falling back to mock", e);
       }
     }
     const appointments = getLocalStorage("appointments") || [];
-    const updated = appointments.map(a => a.id === id ? { ...a, status: "cancelled" } : a);
+    const updated = appointments.filter(a => a.id !== id);
     setLocalStorage("appointments", updated);
     return true;
+  },
+
+  createBlockedAppointment: async (blockData) => {
+    const newBlock = {
+      id: "block_" + Date.now(),
+      clientUid: "blocked",
+      clientName: "Horário Bloqueado",
+      status: "scheduled",
+      isBlocked: true,
+      services: ["Bloqueio"],
+      ...blockData
+    };
+
+    if (isRealFirebase()) {
+      try {
+        await setDoc(doc(db, "appointments", newBlock.id), newBlock);
+      } catch (e) {
+        console.warn("Firestore error creating block, falling back to mock", e);
+        const appointments = getLocalStorage("appointments") || [];
+        appointments.push(newBlock);
+        setLocalStorage("appointments", appointments);
+      }
+    } else {
+      const appointments = getLocalStorage("appointments") || [];
+      appointments.push(newBlock);
+      setLocalStorage("appointments", appointments);
+    }
+    return newBlock;
   },
 
   // Barbeiros
@@ -1784,19 +1754,24 @@ export const dbService = {
     if (isRealFirebase()) {
       try {
         const querySnapshot = await getDocs(collection(db, "services"));
-        const list = [];
+        const firestoreServices = [];
         querySnapshot.forEach((doc) => {
-          list.push({ id: doc.id, ...doc.data() });
+          firestoreServices.push({ id: doc.id, ...doc.data() });
         });
-        if (list.length > 0) return list;
+        console.log("[dbService] getServices from Firestore:", firestoreServices);
+        setLocalStorage("services", firestoreServices);
+        return firestoreServices;
       } catch (e) {
-        console.warn("Firestore error, falling back to mock", e);
+        console.warn("Firestore error fetching services, falling back to local cache", e);
       }
     }
-    return getLocalStorage("services") || [];
+    const local = getLocalStorage("services") || [];
+    console.log("[dbService] getServices from local cache:", local);
+    return local;
   },
 
   createService: async (serviceData) => {
+    console.log("[dbService] createService called with:", serviceData);
     const newService = {
       xp: parseInt(serviceData.price), // XP base = valor do preço para simplificar
       duration: serviceData.duration || "30 min",
@@ -1807,10 +1782,18 @@ export const dbService = {
 
     if (isRealFirebase()) {
       try {
+        console.log("[dbService] Firestore creating service:", newService);
         const docRef = await addDoc(collection(db, "services"), newService);
-        return { id: docRef.id, ...newService };
+        const created = { id: docRef.id, ...newService };
+        console.log("[dbService] Firestore create success:", created);
+        
+        // Atualiza cache local
+        const services = getLocalStorage("services") || [];
+        services.push(created);
+        setLocalStorage("services", services);
+        return created;
       } catch (e) {
-        console.warn("Firestore error, falling back to mock", e);
+        console.error("[dbService] Firestore error creating service:", e);
       }
     }
 
@@ -1834,6 +1817,161 @@ export const dbService = {
       { name: "Pigmentação Premium", time: "Especialista Gold", price: 120, icon: "brush", type: "specialist" },
       { name: "Sobrancelha", time: "15 min", price: 30, icon: "clean_hands", type: "regular" }
     ];
+  },
+
+  updateService: async (serviceId, serviceData) => {
+    console.log("[dbService] updateService called with:", serviceId, serviceData);
+    if (isRealFirebase()) {
+      try {
+        const docRef = doc(db, "services", serviceId);
+        console.log("[dbService] Firestore updating service doc:", serviceId);
+        await updateDoc(docRef, serviceData);
+        console.log("[dbService] Firestore update success");
+        
+        // Atualiza cache local
+        const services = getLocalStorage("services") || [];
+        const updated = services.map(s => s.id === serviceId ? { ...s, ...serviceData } : s);
+        setLocalStorage("services", updated);
+        return { id: serviceId, ...serviceData };
+      } catch (e) {
+        console.error("[dbService] Firestore error updating service:", e);
+      }
+    }
+    const services = getLocalStorage("services") || [];
+    const updated = services.map(s => s.id === serviceId ? { ...s, ...serviceData } : s);
+    setLocalStorage("services", updated);
+    return { id: serviceId, ...serviceData };
+  },
+
+  deleteService: async (serviceId) => {
+    console.log("[dbService] deleteService called with:", serviceId);
+    if (isRealFirebase()) {
+      try {
+        const docRef = doc(db, "services", serviceId);
+        await deleteDoc(docRef);
+        console.log("[dbService] Firestore delete success for doc:", serviceId);
+        
+        // Atualiza cache local
+        const services = getLocalStorage("services") || [];
+        const updated = services.filter(s => s.id !== serviceId);
+        setLocalStorage("services", updated);
+        return true;
+      } catch (e) {
+        console.error("[dbService] Firestore error deleting service:", e);
+      }
+    }
+    const services = getLocalStorage("services") || [];
+    const updated = services.filter(s => s.id !== serviceId);
+    setLocalStorage("services", updated);
+    return true;
+  },
+
+  updateBarberSpecialty: async (barberUid, index, specialty) => {
+    const barbers = getLocalStorage("barbers") || [];
+    let updatedSpecialties = [];
+    const updatedBarbers = barbers.map(b => {
+      if (b.uid === barberUid) {
+        const specs = b.specialties || [];
+        if (specs[index]) {
+          specs[index] = { ...specs[index], ...specialty };
+        }
+        b.specialties = specs;
+        updatedSpecialties = b.specialties;
+      }
+      return b;
+    });
+    setLocalStorage("barbers", updatedBarbers);
+    if (isRealFirebase()) {
+      try {
+        const docRef = doc(db, "barbers", barberUid);
+        await updateDoc(docRef, { specialties: updatedSpecialties });
+      } catch (e) {
+        console.warn("Firestore error updating barber specialty", e);
+      }
+    }
+    return updatedSpecialties;
+  },
+
+  cleanupOrphanServices: async () => {
+    if (!isRealFirebase()) return;
+    try {
+      console.log("[dbService] Starting orphan services cleanup...");
+      // 1. Purgar manualmente os IDs antigos solicitados pelo usuário
+      const servicesToPurge = ["barba", "cabelo", "cabelo_barba"];
+      for (const pid of servicesToPurge) {
+        try {
+          const docRef = doc(db, "services", pid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            console.log("[dbService Sync] Purgando serviço antigo por ID:", pid);
+            await deleteDoc(docRef);
+          }
+        } catch (e) {
+          console.warn("Erro ao purgar serviço por ID:", pid, e);
+        }
+      }
+
+      // 2. Buscar todos os barbeiros para mapear as especialidades ativas
+      const barbersSnap = await getDocs(collection(db, "barbers"));
+      const activeSpecialtyNames = new Set();
+      barbersSnap.forEach(barberDoc => {
+        const barber = { id: barberDoc.id, ...barberDoc.data() };
+        const specs = barber.specialties || [];
+        for (const spec of specs) {
+          activeSpecialtyNames.add(spec.name);
+        }
+      });
+
+      // 3. Buscar todos os serviços globais e deletar os órfãos ou de teste
+      const servicesSnap = await getDocs(collection(db, "services"));
+      for (const sDoc of servicesSnap.docs) {
+        const sData = sDoc.data();
+        const nameLower = (sData.name || "").toLowerCase();
+        const idLower = sDoc.id.toLowerCase();
+        
+        // Critério 1: nome ou ID contém teste/texte
+        const isTestService = nameLower.includes("texte") || nameLower.includes("teste") || idLower.includes("texte") || idLower.includes("teste");
+        
+        // Critério 2: órfão (não está nas especialidades de nenhum barbeiro)
+        const isOrphan = !activeSpecialtyNames.has(sData.name);
+
+        if (isTestService || isOrphan) {
+          console.log("[dbService Sync] Deletando serviço (teste ou órfão) da coleção global:", sData.name || sDoc.id);
+          await deleteDoc(doc(db, "services", sDoc.id));
+        }
+      }
+
+      // 4. Garantir que as especialidades ativas de todos os barbeiros estejam cadastradas como serviços globais
+      const currentServicesSnap = await getDocs(collection(db, "services"));
+      const currentServices = [];
+      currentServicesSnap.forEach(docSnap => currentServices.push({ id: docSnap.id, ...docSnap.data() }));
+
+      barbersSnap.forEach(async (barberDoc) => {
+        const barber = { id: barberDoc.id, ...barberDoc.data() };
+        const specs = barber.specialties || [];
+        for (const spec of specs) {
+          const alreadyExists = currentServices.some(s => s.name === spec.name);
+          if (!alreadyExists) {
+            console.log("[dbService Sync] Criando serviço global para especialidade ativa:", spec.name);
+            const newService = {
+              id: "service_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+              name: spec.name,
+              price: spec.price,
+              duration: spec.time || "30 min",
+              icon: spec.icon || "content_cut",
+              type: spec.type || "regular",
+              xp: parseInt(spec.price) || 50
+            };
+            await setDoc(doc(db, "services", newService.id), newService);
+            currentServices.push(newService);
+          }
+        }
+      });
+
+      console.log("[dbService] Orphan services cleanup completed.");
+    } catch (err) {
+      console.warn("Erro durante limpeza de serviços órfãos:", err);
+    }
   },
 
   addBarberSpecialty: async (barberUid, specialty) => {
@@ -1902,6 +2040,11 @@ export const dbService = {
 
   // --- MÓDULO 1 & 2 & 3: BARBEIROS E UNIDADES ---
   createBarber: async (barberData) => {
+    const defaultSpecialties = [
+      { name: "Corte Royal", time: "30 min", price: 90, icon: "content_cut", type: "regular" },
+      { name: "Barba Terapia", time: "30 min", price: 60, icon: "face", type: "regular" }
+    ];
+
     const newBarber = {
       uid: "barber_" + Date.now(),
       rating: 5.0,
@@ -1911,10 +2054,7 @@ export const dbService = {
       bio: barberData.bio || "",
       avatarUrl: barberData.avatarUrl || "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=150&auto=format&fit=crop&q=60",
       unitIds: barberData.unitIds || [],
-      specialties: barberData.specialties || [
-        { name: "Corte Royal", time: "30 min", price: 90, icon: "content_cut", type: "regular" },
-        { name: "Barba Terapia", time: "30 min", price: 60, icon: "face", type: "regular" }
-      ],
+      specialties: barberData.specialties || defaultSpecialties,
       scheduleConfig: {
         start: "09:00",
         end: "19:00",
@@ -1924,6 +2064,27 @@ export const dbService = {
       },
       ...barberData
     };
+
+    // Garante que os serviços padrão existam na coleção global
+    const specs = newBarber.specialties;
+    const existingServices = await dbService.getServices();
+    for (const spec of specs) {
+      const alreadyExists = existingServices.some(s => s.name === spec.name);
+      if (!alreadyExists) {
+        const services = getLocalStorage("services") || [];
+        const newService = {
+          id: "service_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+          name: spec.name,
+          price: spec.price,
+          duration: spec.time || "30 min",
+          icon: spec.icon || "content_cut",
+          type: spec.type || "regular",
+          xp: parseInt(spec.price) || 50
+        };
+        services.push(newService);
+        setLocalStorage("services", services);
+      }
+    }
 
     if (isRealFirebase()) {
       try {
@@ -2503,8 +2664,8 @@ export const dbService = {
 
       if (available) {
         for (const apt of dayApts) {
-          let duration = 45;
-          if (apt.services && apt.services.length > 0) {
+          let duration = apt.duration || 45;
+          if (!apt.duration && apt.services && apt.services.length > 0) {
             const servicesList = await dbService.getServices();
             const matchingService = servicesList.find(s => apt.services.includes(s.name));
             if (matchingService) {
@@ -2517,7 +2678,7 @@ export const dbService = {
           const isOverlapping = (slotStart < aptEnd && slotEnd > aptStart);
           if (isOverlapping) {
             available = false;
-            reason = "Horário ocupado";
+            reason = apt.isBlocked ? (apt.blockReason || "Horário Bloqueado") : "Horário ocupado";
             break;
           }
         }
@@ -3824,7 +3985,33 @@ export const dbService = {
     return null;
   },
 
-  register: async (name, email, password) => {
+  uploadImage: async (base64Data, userUid) => {
+    const id = "img_" + Date.now();
+    const docData = {
+      id,
+      url: base64Data,
+      uploadedBy: userUid || "anonymous",
+      createdAt: new Date().toISOString()
+    };
+
+    if (isRealFirebase()) {
+      try {
+        const { getFirestore, doc, setDoc } = await import("firebase/firestore");
+        await setDoc(doc(db, "uploadedImages", id), docData);
+      } catch (e) {
+        console.warn("Firestore error saving image", e);
+      }
+    }
+
+    // Sincroniza localmente
+    const images = getLocalStorage("uploadedImages") || [];
+    images.push(docData);
+    setLocalStorage("uploadedImages", images);
+
+    return docData.url;
+  },
+
+  register: async (name, email, password, phone) => {
     const emailStr = String(email).trim().toLowerCase();
     
     // Verifica se e-mail já existe localmente
@@ -3840,10 +4027,12 @@ export const dbService = {
       name,
       email: emailStr,
       password,
+      phone: phone || "",
       role: "client",
       xp: 0,
       coins: 0,
       plan: null,
+      unitId: null,
       subscriptionStartDate: null,
       avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=60",
       createdAt: new Date().toISOString()
@@ -3877,6 +4066,7 @@ export const dbService = {
           uid,
           name: newUser.name,
           email: newUser.email,
+          phone: newUser.phone || "",
           role: newUser.role,
           xp: newUser.xp,
           coins: newUser.coins,
@@ -3906,6 +4096,300 @@ export const dbService = {
     }
 
     return newUser;
+  },
+
+  // --- MÓDULO: UNIDADES ---
+  getUnits: async () => {
+    if (isRealFirebase()) {
+      try {
+        const querySnapshot = await getDocs(collection(db, "units"));
+        const list = [];
+        querySnapshot.forEach(docSnap => {
+          list.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        if (list.length > 0) {
+          setLocalStorage("units", list);
+          return list;
+        }
+      } catch (e) {
+        console.warn("Firestore error fetching units, falling back to mock", e);
+      }
+    }
+    return getLocalStorage("units") || [];
+  },
+
+  createUnit: async (unitData) => {
+    const id = "unit_" + Date.now();
+    const newUnit = { id, ...unitData };
+    const units = getLocalStorage("units") || [];
+    units.push(newUnit);
+    setLocalStorage("units", units);
+    if (isRealFirebase()) {
+      try {
+        await setDoc(doc(db, "units", id), newUnit);
+      } catch (e) {
+        console.error("Erro ao criar unidade no Firestore:", e);
+      }
+    }
+    return newUnit;
+  },
+
+  updateUnit: async (id, unitData) => {
+    const units = getLocalStorage("units") || [];
+    const idx = units.findIndex(u => u.id === id);
+    if (idx !== -1) {
+      units[idx] = { ...units[idx], ...unitData };
+      setLocalStorage("units", units);
+    }
+    if (isRealFirebase()) {
+      try {
+        await setDoc(doc(db, "units", id), unitData, { merge: true });
+      } catch (e) {
+        console.error("Erro ao atualizar unidade no Firestore:", e);
+      }
+    }
+  },
+
+  deleteUnit: async (id) => {
+    const units = getLocalStorage("units") || [];
+    setLocalStorage("units", units.filter(u => u.id !== id));
+    if (isRealFirebase()) {
+      try {
+        await deleteDoc(doc(db, "units", id));
+      } catch (e) {
+        console.error("Erro ao deletar unidade no Firestore:", e);
+      }
+    }
+  },
+
+  // --- MÓDULO: VINCULAÇÃO CLIENTE ↔ UNIDADE ---
+
+  setUserUnit: async (uid, unitId) => {
+    // Salva localmente
+    const users = getLocalStorage("users") || {};
+    if (users[uid]) {
+      users[uid].unitId = unitId;
+      setLocalStorage("users", users);
+    }
+    // Salva localStorage da sessão atual
+    try {
+      const saved = localStorage.getItem("clubber_current_user");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.uid === uid) {
+          parsed.unitId = unitId;
+          localStorage.setItem("clubber_current_user", JSON.stringify(parsed));
+        }
+      }
+    } catch (e) {}
+    // Salva no Firestore
+    if (isRealFirebase()) {
+      try {
+        await setDoc(doc(db, "users", uid), { unitId }, { merge: true });
+      } catch (e) {
+        console.error("Erro ao salvar unitId do usuário no Firestore:", e);
+        throw e;
+      }
+    }
+  },
+
+  // --- MÓDULO: PLANOS POR UNIDADE ---
+
+  getPlanConfigsByUnit: async (unitId) => {
+    if (!unitId) {
+      // Se não tiver unidade, retorna os planos globais
+      return dbService.getPlanConfigs();
+    }
+    // Tenta buscar planos específicos da unidade
+    if (isRealFirebase()) {
+      try {
+        const docRef = doc(db, "units", unitId, "plans", "configs");
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          return snap.data();
+        }
+      } catch (e) {
+        console.warn("Erro ao buscar planos da unidade no Firestore:", e);
+      }
+    }
+    // Fallback: tenta no localStorage
+    const key = `planConfigs_unit_${unitId}`;
+    const local = getLocalStorage(key);
+    if (local) return local;
+    // Fallback final: planos globais
+    return dbService.getPlanConfigs();
+  },
+
+  updatePlanConfigsByUnit: async (unitId, configs) => {
+    if (!unitId) {
+      return dbService.updatePlanConfigs(configs);
+    }
+    const key = `planConfigs_unit_${unitId}`;
+    setLocalStorage(key, configs);
+    if (isRealFirebase()) {
+      try {
+        const docRef = doc(db, "units", unitId, "plans", "configs");
+        await setDoc(docRef, configs, { merge: true });
+        return configs;
+      } catch (e) {
+        console.error("Erro ao salvar planos da unidade no Firestore:", e);
+        throw e;
+      }
+    }
+    return configs;
+  },
+
+  // --- MÓDULO: CENTRAL DE NOTIFICAÇÕES IN-APP & FCM ---
+
+  getNotifications: async (userUid) => {
+    if (isRealFirebase()) {
+      try {
+        const q = query(
+          collection(db, "notifications"),
+          where("recipientUid", "==", userUid)
+        );
+        const snapshot = await getDocs(q);
+        const list = [];
+        snapshot.forEach(docSnap => {
+          list.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        return list;
+      } catch (e) {
+        console.warn("Firestore error getting notifications, falling back to mock", e);
+      }
+    }
+    const list = getLocalStorage("notifications") || [];
+    return list
+      .filter(n => n.recipientUid === userUid)
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  },
+
+  createNotification: async (notificationData) => {
+    const newNotif = {
+      id: "notif_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+      read: false,
+      createdAt: new Date().toISOString(),
+      ...notificationData
+    };
+
+    if (isRealFirebase()) {
+      try {
+        await setDoc(doc(db, "notifications", newNotif.id), newNotif);
+        return newNotif;
+      } catch (e) {
+        console.warn("Firestore error creating notification, falling back to mock", e);
+      }
+    }
+
+    const list = getLocalStorage("notifications") || [];
+    list.push(newNotif);
+    setLocalStorage("notifications", list);
+    return newNotif;
+  },
+
+  markNotificationAsRead: async (notificationId) => {
+    if (isRealFirebase()) {
+      try {
+        await updateDoc(doc(db, "notifications", notificationId), { read: true });
+      } catch (e) {
+        console.warn("Firestore error marking notification as read", e);
+      }
+    }
+    const list = getLocalStorage("notifications") || [];
+    const updated = list.map(n => n.id === notificationId ? { ...n, read: true } : n);
+    setLocalStorage("notifications", updated);
+    return true;
+  },
+
+  markAllNotificationsAsRead: async (userUid) => {
+    if (isRealFirebase()) {
+      try {
+        const q = query(
+          collection(db, "notifications"),
+          where("recipientUid", "==", userUid),
+          where("read", "==", false)
+        );
+        const snapshot = await getDocs(q);
+        const batch = writeBatch(db);
+        snapshot.forEach(docSnap => {
+          batch.update(docSnap.ref, { read: true });
+        });
+        await batch.commit();
+      } catch (e) {
+        console.warn("Firestore error marking all notifications as read", e);
+      }
+    }
+    const list = getLocalStorage("notifications") || [];
+    const updated = list.map(n => n.recipientUid === userUid ? { ...n, read: true } : n);
+    setLocalStorage("notifications", updated);
+    return true;
+  },
+
+  clearAllNotifications: async (userUid) => {
+    if (isRealFirebase()) {
+      try {
+        const q = query(
+          collection(db, "notifications"),
+          where("recipientUid", "==", userUid)
+        );
+        const snapshot = await getDocs(q);
+        const batch = writeBatch(db);
+        snapshot.forEach(docSnap => {
+          batch.delete(docSnap.ref);
+        });
+        await batch.commit();
+      } catch (e) {
+        console.warn("Firestore error clearing notifications", e);
+      }
+    }
+    const list = getLocalStorage("notifications") || [];
+    const updated = list.filter(n => n.recipientUid !== userUid);
+    setLocalStorage("notifications", updated);
+    return true;
+  },
+
+  saveFcmToken: async (userUid, token) => {
+    if (!token || !userUid) return false;
+    
+    // Salva localmente
+    const users = getLocalStorage("users") || {};
+    if (users[userUid]) {
+      const tokens = users[userUid].fcmTokens || [];
+      if (!tokens.includes(token)) {
+        tokens.push(token);
+        users[userUid].fcmTokens = tokens;
+        setLocalStorage("users", users);
+      }
+    }
+    
+    // Salva também no currentUser do localStorage se for o mesmo
+    try {
+      const saved = localStorage.getItem("clubber_current_user");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.uid === userUid) {
+          const tokens = parsed.fcmTokens || [];
+          if (!tokens.includes(token)) {
+            tokens.push(token);
+            parsed.fcmTokens = tokens;
+            localStorage.setItem("clubber_current_user", JSON.stringify(parsed));
+          }
+        }
+      }
+    } catch (e) {}
+
+    // Salva no Firestore
+    if (isRealFirebase()) {
+      try {
+        await updateDoc(doc(db, "users", userUid), {
+          fcmTokens: arrayUnion(token)
+        });
+      } catch (e) {
+        console.warn("Firestore error updating FCM tokens", e);
+      }
+    }
+    return true;
   }
 };
 

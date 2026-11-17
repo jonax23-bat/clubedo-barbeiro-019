@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getMessaging, isSupported } from "firebase/messaging";
 
 // Configurações padrão (pode ser substituído por chaves reais do Firebase)
 const firebaseConfig = {
@@ -17,4 +18,11 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-export { app, auth, db };
+let messaging = null;
+isSupported().then((supported) => {
+  if (supported) {
+    messaging = getMessaging(app);
+  }
+}).catch(() => {});
+
+export { app, auth, db, messaging };

@@ -3,8 +3,11 @@ import { dbService } from "../firebase/dbService";
 
 export default function ShopBranding({ user, navigateTo, onBrandingChange }) {
   // --- Estados do Componente ---
-  const [shopName, setShopName] = useState("Clubber Barbershop");
+  const [shopName, setShopName] = useState("AliJoy Studio");
   const [logoUrl, setLogoUrl] = useState("");
+  const [pixKey, setPixKey] = useState("");
+  const [pixName, setPixName] = useState("");
+  const [ownerPhone, setOwnerPhone] = useState("");
   
   // Endereço
   const [zip, setZip] = useState("");
@@ -26,8 +29,11 @@ export default function ShopBranding({ user, navigateTo, onBrandingChange }) {
     const loadBranding = async () => {
       const data = await dbService.getBranding();
       if (data) {
-        setShopName(data.name || "Clubber Barbershop");
+        setShopName(data.name || "AliJoy Studio");
         setLogoUrl(data.logoUrl || "");
+        setPixKey(data.pixKey || "");
+        setPixName(data.pixName || "");
+        setOwnerPhone(data.ownerPhone || data.address?.phone || "");
         if (data.address) {
           setZip(data.address.zip || "");
           setStreet(data.address.street || "");
@@ -76,6 +82,9 @@ export default function ShopBranding({ user, navigateTo, onBrandingChange }) {
     const brandingData = {
       name: shopName,
       logoUrl,
+      pixKey,
+      pixName,
+      ownerPhone,
       address: {
         zip,
         street,
@@ -140,13 +149,39 @@ export default function ShopBranding({ user, navigateTo, onBrandingChange }) {
                 />
               </div>
             </div>
-            <input 
-              type="text"
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              placeholder="Cole a URL do Logo aqui"
-              className="mt-md w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-sm py-xs text-xs text-on-surface focus:outline-none"
-            />
+            <div className="mt-md w-full flex flex-col gap-xs">
+              <label className="bg-tertiary text-on-tertiary px-sm py-2 rounded-lg font-bold text-xs uppercase cursor-pointer hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-xs">
+                <span className="material-symbols-outlined text-sm">upload</span>
+                Enviar Imagem do Logo
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  className="hidden" 
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = async () => {
+                        try {
+                          const uploadedUrl = await dbService.uploadImage(reader.result, "branding_logo");
+                          setLogoUrl(uploadedUrl);
+                        } catch (err) {
+                          console.error("Upload error", err);
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </label>
+              <input 
+                type="text"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                placeholder="Cole a URL do Logo aqui"
+                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-sm py-xs text-xs text-on-surface focus:outline-none"
+              />
+            </div>
           </section>
 
           {/* Sessão: Nome do Estabelecimento */}
@@ -165,6 +200,49 @@ export default function ShopBranding({ user, navigateTo, onBrandingChange }) {
                 Este nome será exibido para todos os clientes no topo do aplicativo e nas notificações.
               </p>
             </div>
+          </section>
+
+          {/* Sessão: Dados de Pagamento (PIX) */}
+          <section className="bg-surface-container p-md rounded-xl border border-outline-variant/10 space-y-md md:col-span-2">
+            <h3 className="font-label-md text-label-md uppercase text-on-surface-variant flex items-center gap-xs">
+              <span className="material-symbols-outlined text-tertiary text-sm">payments</span>
+              Dados de Pagamento (PIX)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
+              <div className="space-y-xs">
+                <label className="text-label-sm text-outline uppercase font-bold text-[10px]">Nome do Favorecido (Aparece no App)</label>
+                <input
+                  type="text"
+                  value={pixName}
+                  onChange={(e) => setPixName(e.target.value)}
+                  placeholder="Ex: Marcus Oliveira de Souza"
+                  className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-md py-sm text-on-surface focus:outline-none focus:border-tertiary"
+                />
+              </div>
+              <div className="space-y-xs">
+                <label className="text-label-sm text-outline uppercase font-bold text-[10px]">Chave PIX</label>
+                <input
+                  type="text"
+                  value={pixKey}
+                  onChange={(e) => setPixKey(e.target.value)}
+                  placeholder="Ex: CNPJ, Celular, E-mail ou Chave Aleatória"
+                  className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-md py-sm text-on-surface focus:outline-none focus:border-tertiary"
+                />
+              </div>
+              <div className="space-y-xs">
+                <label className="text-label-sm text-outline uppercase font-bold text-[10px]">WhatsApp do Dono (para comprovantes)</label>
+                <input
+                  type="text"
+                  value={ownerPhone}
+                  onChange={(e) => setOwnerPhone(e.target.value)}
+                  placeholder="Ex: (19) 99318-7828"
+                  className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-md py-sm text-on-surface focus:outline-none focus:border-tertiary"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-on-surface-variant leading-relaxed">
+              Esses dados serão mostrados no card de checkout quando o cliente solicitar a assinatura de algum plano, orientando-o no pagamento.
+            </p>
           </section>
 
         </div>
@@ -205,7 +283,7 @@ export default function ShopBranding({ user, navigateTo, onBrandingChange }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-sm">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-sm">
             <div className="space-y-xs">
               <label className="text-label-sm text-outline uppercase font-bold text-[10px]">Número</label>
               <input
@@ -240,13 +318,25 @@ export default function ShopBranding({ user, navigateTo, onBrandingChange }) {
             </div>
 
             <div className="space-y-xs">
-              <label className="text-label-sm text-outline uppercase font-bold text-[10px]">Cidade/UF</label>
+              <label className="text-label-sm text-outline uppercase font-bold text-[10px]">Cidade</label>
               <input
                 type="text"
-                value={city && state ? `${city} - ${state}` : city || ""}
-                readOnly
-                placeholder="Curitiba - PR"
-                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-md py-sm text-on-surface-variant focus:outline-none cursor-not-allowed"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="Curitiba"
+                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-md py-sm text-on-surface focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-xs">
+              <label className="text-label-sm text-outline uppercase font-bold text-[10px]">UF</label>
+              <input
+                type="text"
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+                placeholder="PR"
+                maxLength="2"
+                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-md py-sm text-on-surface focus:outline-none"
               />
             </div>
           </div>

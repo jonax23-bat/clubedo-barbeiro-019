@@ -16,6 +16,7 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editBio, setEditBio] = useState(user.bio || "");
   const [editAvatarUrl, setEditAvatarUrl] = useState(user.avatarUrl || "");
+  const [editPhone, setEditPhone] = useState(user.phone || "");
 
   // --- Estados de Segurança ---
   const [isEditingSecurity, setIsEditingSecurity] = useState(false);
@@ -44,8 +45,10 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
   const [newServiceDuration, setNewServiceDuration] = useState("30 min");
   const [newServiceIcon, setNewServiceIcon] = useState("content_cut");
   const [newServiceType, setNewServiceType] = useState("regular");
+  const [editingServiceIndex, setEditingServiceIndex] = useState(null);
 
   const [saving, setSaving] = useState(false);
+  const [showBlockModal, setShowBlockModal] = useState(false);
 
   // --- Efeito: Carregar Dados ---
   useEffect(() => {
@@ -67,6 +70,7 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
       setBarberData(currentBarber);
       setEditBio(currentBarber.bio || "");
       setEditAvatarUrl(currentBarber.avatarUrl || "");
+      setEditPhone(currentBarber.phone || "");
       setEditLogin(currentBarber.login || "");
       setEditPassword(currentBarber.password || "");
       
@@ -146,7 +150,8 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
     try {
       await dbService.updateBarberProfile(user.uid, {
         bio: editBio,
-        avatarUrl: editAvatarUrl
+        avatarUrl: editAvatarUrl,
+        phone: editPhone
       });
       setIsEditingProfile(false);
       await loadBarberData();
@@ -236,12 +241,22 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
     setShowServiceModal(true);
   };
 
+  const handleOpenEditService = (index, spec) => {
+    setEditingServiceIndex(index);
+    setNewServiceName(spec.name);
+    setNewServicePrice(spec.price);
+    setNewServiceDuration(spec.time || "30 min");
+    setNewServiceIcon(spec.icon || "content_cut");
+    setNewServiceType(spec.type || "regular");
+    setShowServiceModal(true);
+  };
+
   const handleCreateService = async (e) => {
     e.preventDefault();
     if (!newServiceName.trim() || !newServicePrice) return;
 
     try {
-      const newSpec = {
+      const specData = {
         name: newServiceName,
         price: parseFloat(newServicePrice),
         time: newServiceDuration,
@@ -249,25 +264,87 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
         type: newServiceType
       };
 
-      const updatedSpecs = await dbService.addBarberSpecialty(user.uid, newSpec);
-      setSpecialties(updatedSpecs);
+      if (editingServiceIndex !== null) {
+        // Atualiza especialidade do barbeiro
+        const updatedSpecs = await dbService.updateBarberSpecialty(user.uid, editingServiceIndex, specData);
+        setSpecialties(updatedSpecs);
 
-      await dbService.createService({
-        name: newServiceName,
-        price: parseFloat(newServicePrice),
-        duration: newServiceDuration,
-        icon: newServiceIcon,
-        type: newServiceType
-      });
+        // Atualiza serviço global correspondente (busca pelo nome original)
+        const oldSpec = specialties[editingServiceIndex];
+        if (oldSpec) {
+          const allServices = await dbService.getServices();
+          const matchingGlobal = allServices.find(s => s.name === oldSpec.name);
+          if (matchingGlobal) {
+            await dbService.updateService(matchingGlobal.id, {
+              name: newServiceName,
+              price: parseFloat(newServicePrice),
+              duration: newServiceDuration,
+              icon: newServiceIcon,
+              type: newServiceType
+            });
+          } else {
+            // Se não achar o global, cria um novo
+            await dbService.createService({
+              name: newServiceName,
+              price: parseFloat(newServicePrice),
+              duration: newServiceDuration,
+              icon: newServiceIcon,
+              type: newServiceType
+            });
+          }
+        }
+      } else {
+        const updatedSpecs = await dbService.addBarberSpecialty(user.uid, specData);
+        setSpecialties(updatedSpecs);
+
+        await dbService.createService({
+          name: newServiceName,
+          price: parseFloat(newServicePrice),
+          duration: newServiceDuration,
+          icon: newServiceIcon,
+          type: newServiceType
+        });
+      }
 
       setShowServiceModal(false);
+      setEditingServiceIndex(null);
       setNewServiceName("");
       setNewServicePrice("");
       setNewServiceDuration("30 min");
       setNewServiceIcon("content_cut");
       setNewServiceType("regular");
     } catch (err) {
-      console.error("Erro ao criar serviço", err);
+      console.error("Erro ao salvar serviço", err);
+    }
+  };
+
+  const handleSaveBlock = async (formData) => {
+    try {
+      await dbService.createBlockedAppointment({
+        barberUid: user.uid,
+        barberName: user.name,
+        date: formData.date,
+        time: formData.startTime,
+        duration: formData.duration,
+        blockReason: formData.reason
+      });
+      await loadBarberData();
+      setShowBlockModal(false);
+    } catch (e) {
+      console.error("Erro ao salvar bloqueio:", e);
+      throw e;
+    }
+  };
+
+  const handleUnblock = async (aptId) => {
+    if (window.confirm("Deseja realmente desbloquear este horário?")) {
+      try {
+        await dbService.deleteAppointment(aptId);
+        await loadBarberData();
+      } catch (e) {
+        console.error("Erro ao desbloquear horário:", e);
+        alert("Ocorreu um erro ao desbloquear o horário.");
+      }
     }
   };
 
@@ -393,12 +470,11 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
         </div>
       </section>
 
-      {/* Abas de Navegação (Apenas para o próprio barbeiro) */}
       {isOwnProfile && (
         <div className="flex border-b border-outline-variant/10 gap-md pb-1 mb-md">
           <button
             type="button"
-            onClick={() => navigateTo("barber_profile")}
+            onClick={() => setActiveTab("overview")}
             className={`pb-2 text-sm font-bold uppercase tracking-wider transition-all border-b-2 flex items-center gap-xs ${
               activeTab === "overview"
                 ? "border-tertiary text-tertiary font-bold"
@@ -410,7 +486,19 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
           </button>
           <button
             type="button"
-            onClick={() => navigateTo("barber_settings")}
+            onClick={() => setActiveTab("contacts")}
+            className={`pb-2 text-sm font-bold uppercase tracking-wider transition-all border-b-2 flex items-center gap-xs ${
+              activeTab === "contacts"
+                ? "border-tertiary text-tertiary font-bold"
+                : "border-transparent text-outline hover:text-on-surface"
+            }`}
+          >
+            <span className="material-symbols-outlined text-[18px]">contacts</span>
+            Agenda de Clientes
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("settings")}
             className={`pb-2 text-sm font-bold uppercase tracking-wider transition-all border-b-2 flex items-center gap-xs ${
               activeTab === "settings"
                 ? "border-tertiary text-tertiary font-bold"
@@ -424,7 +512,7 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
       )}
 
       {/* Seção Principal: Info, Agenda e Configurações */}
-      {(!isOwnProfile || activeTab === "overview") ? (
+      {(!isOwnProfile || activeTab === "overview") && (
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-lg">
           
           {/* Lado Esquerdo: Escala ou Configurações */}
@@ -433,16 +521,58 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
           {/* Agenda de Atendimentos / Confirmação de Presença (Módulo B) */}
           {isOwnProfile && (
             <div className="glass-card p-md rounded-xl space-y-md border border-outline-variant/10">
-              <h3 className="font-headline-md text-headline-md text-on-surface flex items-center gap-xs">
-                <span className="material-symbols-outlined text-tertiary">calendar_today</span>
-                Agenda de Atendimentos
-              </h3>
+              <div className="flex items-center justify-between gap-sm flex-wrap">
+                <h3 className="font-headline-md text-headline-md text-on-surface flex items-center gap-xs">
+                  <span className="material-symbols-outlined text-tertiary">calendar_today</span>
+                  Agenda de Atendimentos
+                </h3>
+                <button
+                  onClick={() => setShowBlockModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold hover:bg-red-500/20 active:scale-95 transition"
+                >
+                  <span className="material-symbols-outlined text-sm">block</span>
+                  Bloquear Horário
+                </button>
+              </div>
               
               {appointments.length === 0 ? (
                 <p className="text-xs text-on-surface-variant italic py-sm">Nenhum agendamento encontrado para você.</p>
               ) : (
                 <div className="space-y-sm">
                   {appointments.map((apt) => {
+                    if (apt.isBlocked) {
+                      return (
+                        <div 
+                          key={apt.id} 
+                          className="p-sm rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-sm border border-red-500/25 bg-red-500/5 hover:border-red-500/40 transition-all text-left"
+                        >
+                          <div className="space-y-xs">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <strong className="text-sm text-red-400 flex items-center gap-1">
+                                <span className="material-symbols-outlined text-base">block</span>
+                                Horário Bloqueado
+                              </strong>
+                              <span className="text-[10px] text-red-500/60">• {apt.time} ({new Date(apt.date + 'T00:00:00').toLocaleDateString('pt-BR', {day: 'numeric', month: 'short'})})</span>
+                            </div>
+                            <p className="text-xs text-on-surface-variant">Motivo: {apt.blockReason || "Não especificado"}</p>
+                            <div className="flex items-center gap-2 text-[10px]">
+                              <span className="text-red-500/60">Duração: ~{apt.duration || 30} min</span>
+                              <span className="px-1 rounded font-semibold bg-red-500/20 text-red-400">Bloqueado</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-xs mt-xs md:mt-0">
+                            <button
+                              onClick={() => handleUnblock(apt.id)}
+                              className="border border-red-500/30 hover:bg-red-500/15 text-red-400 text-xs font-bold px-3 py-2 rounded transition-colors active:scale-95 flex items-center gap-1"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">lock_open</span>
+                              Desbloquear
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
                     const isScheduled = apt.status === "scheduled";
                     const isCompleted = apt.status === "completed";
                     const isCancelled = apt.status === "cancelled";
@@ -677,9 +807,21 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
                       </p>
                     </div>
                   </div>
-                  <span className={`material-symbols-outlined ${isSpecialist ? "text-tertiary" : "text-on-surface-variant group-hover:text-tertiary"} transition-colors`}>
-                    {isSpecialist ? "stars" : "check_circle"}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    {isOwnProfile && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleOpenEditService(index, spec); }}
+                        className="p-1 rounded hover:bg-tertiary/10 text-on-surface-variant hover:text-tertiary transition-colors opacity-0 group-hover:opacity-100"
+                        title="Editar serviço"
+                      >
+                        <span className="material-symbols-outlined text-sm">edit</span>
+                      </button>
+                    )}
+                    <span className={`material-symbols-outlined ${isSpecialist ? "text-tertiary" : "text-on-surface-variant group-hover:text-tertiary"} transition-colors`}>
+                      {isSpecialist ? "stars" : "check_circle"}
+                    </span>
+                  </div>
                 </div>
               );
             })}
@@ -697,7 +839,9 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
         </div>
 
       </section>
-      ) : (
+      )}
+
+      {isOwnProfile && activeTab === "settings" && (
         /* Seção de Configurações (Apenas para o próprio barbeiro) */
         <section className="space-y-md animate-fade-in">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
@@ -729,6 +873,7 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
               {!isEditingProfile ? (
                 <div className="space-y-sm text-body-md text-on-surface-variant">
                   <p><strong>Bio:</strong> {barberData.bio || "Nenhuma biografia cadastrada."}</p>
+                  <p><strong>Telefone / WhatsApp:</strong> {barberData.phone || "Não cadastrado."}</p>
                   <p className="truncate"><strong>Foto:</strong> <span className="text-xs text-outline">{barberData.avatarUrl}</span></p>
                 </div>
               ) : (
@@ -745,15 +890,66 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
                     />
                   </div>
                   <div className="space-y-xs">
-                    <label className="text-label-sm text-outline uppercase tracking-wider text-[10px]">URL da Foto de Perfil</label>
+                    <label className="text-label-sm text-outline uppercase tracking-wider text-[10px]">Telefone / WhatsApp</label>
                     <input
                       type="text"
-                      value={editAvatarUrl}
-                      onChange={(e) => setEditAvatarUrl(e.target.value)}
-                      placeholder="https://exemplo.com/foto.jpg"
-                      className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded p-sm text-xs text-on-surface focus:outline-none"
-                      required
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      placeholder="Ex: (19) 99999-9999"
+                      className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded p-sm text-xs text-on-surface focus:outline-none focus:border-tertiary"
                     />
+                  </div>
+                  <div className="space-y-sm bg-surface-container/30 p-md rounded-xl border border-outline-variant/10">
+                    <div className="flex flex-col sm:flex-row gap-md items-center justify-between">
+                      <div className="flex items-center gap-sm">
+                        <div className="w-12 h-12 rounded-full overflow-hidden border border-outline-variant/30 shrink-0">
+                          <img 
+                            src={editAvatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=60"} 
+                            alt="Barber Avatar" 
+                            className="w-full h-full object-cover" 
+                          />
+                        </div>
+                        <div className="text-left">
+                          <span className="text-label-sm text-on-surface-variant block font-bold">Foto do Perfil</span>
+                          <span className="text-[10px] text-outline font-mono block">Escolha uma foto ou cole a URL</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-xs">
+                        <label className="bg-tertiary text-on-tertiary px-sm py-2 rounded-lg font-bold text-xs uppercase cursor-pointer hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-xs shrink-0">
+                          <span className="material-symbols-outlined text-sm">upload</span>
+                          Enviar Foto
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            className="hidden" 
+                            onChange={async (e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = async () => {
+                                  try {
+                                    const uploadedUrl = await dbService.uploadImage(reader.result, user.uid);
+                                    setEditAvatarUrl(uploadedUrl);
+                                  } catch (err) {
+                                    console.error("Upload error", err);
+                                  }
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </label>
+                        <span className="text-outline text-xs text-center">ou</span>
+                        <input 
+                          type="text" 
+                          placeholder="Cole URL da foto"
+                          value={editAvatarUrl}
+                          onChange={(e) => setEditAvatarUrl(e.target.value)}
+                          className="bg-surface-container border border-outline-variant/30 rounded-lg px-md py-2 text-xs text-on-surface focus:outline-none focus:border-tertiary max-w-[200px]"
+                        />
+                      </div>
+                    </div>
                   </div>
                   <button 
                     type="submit" 
@@ -960,15 +1156,119 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
                           </p>
                         </div>
                       </div>
-                      <span className={`material-symbols-outlined ${isSpecialist ? "text-tertiary" : "text-on-surface-variant group-hover:text-tertiary"} transition-colors`}>
-                        {isSpecialist ? "stars" : "check_circle"}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        {isOwnProfile && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleOpenEditService(index, spec); }}
+                            className="p-1 rounded hover:bg-tertiary/10 text-on-surface-variant hover:text-tertiary transition-colors opacity-0 group-hover:opacity-100"
+                            title="Editar serviço"
+                          >
+                            <span className="material-symbols-outlined text-sm">edit</span>
+                          </button>
+                        )}
+                        <span className={`material-symbols-outlined ${isSpecialist ? "text-tertiary" : "text-on-surface-variant group-hover:text-tertiary"} transition-colors`}>
+                          {isSpecialist ? "stars" : "check_circle"}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
               </div>
             </div>
+          </div>
+        </section>
+      )}
 
+      {/* Agenda de Contatos dos Clientes para o Barbeiro */}
+      {isOwnProfile && activeTab === "contacts" && (
+        <section className="glass-card p-md md:p-lg rounded-xl border border-outline-variant/10 space-y-md animate-fade-in">
+          <header className="mb-sm flex flex-col md:flex-row md:items-center justify-between gap-md">
+            <div>
+              <h3 className="font-display-md text-headline-md text-on-surface flex items-center gap-xs">
+                <span className="material-symbols-outlined text-tertiary">contacts</span>
+                Agenda de Contatos dos Clientes
+              </h3>
+              <p className="text-xs text-on-surface-variant font-body-md mt-0.5">
+                Lista telefônica e e-mails de contato de todos os clientes cadastrados no AliJoy Studio.
+              </p>
+            </div>
+            <div className="bg-tertiary/10 border border-tertiary/20 px-sm py-xs rounded text-[11px] font-bold text-tertiary self-start flex items-center gap-xs">
+              <span className="material-symbols-outlined text-xs">group</span>
+              <span>{clients.length} Clientes</span>
+            </div>
+          </header>
+
+          <div className="hidden md:block overflow-hidden border border-outline-variant/10 rounded-lg">
+            <table className="w-full text-left">
+              <thead className="bg-surface-variant/50 text-label-sm uppercase font-bold text-on-surface-variant">
+                <tr>
+                  <th className="px-md py-sm">Foto</th>
+                  <th className="px-md py-sm">Nome</th>
+                  <th className="px-md py-sm">Telefone</th>
+                  <th className="px-md py-sm">E-mail</th>
+                  <th className="px-md py-sm">Plano</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant/10">
+                {clients.map(c => (
+                  <tr key={c.uid} className="hover:bg-surface-variant/10 transition-colors">
+                    <td className="px-md py-md">
+                      <img 
+                        src={c.avatarUrl || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=60"} 
+                        alt={c.name}
+                        className="w-10 h-10 rounded-full object-cover border border-outline-variant/20"
+                      />
+                    </td>
+                    <td className="px-md py-md font-bold text-on-surface">{c.name}</td>
+                    <td className="px-md py-md text-tertiary font-semibold font-mono">
+                      {c.phone ? (
+                        <a href={`tel:${c.phone}`} className="hover:underline flex items-center gap-xs">
+                          <span className="material-symbols-outlined text-sm">call</span>
+                          {c.phone}
+                        </a>
+                      ) : (
+                        <span className="text-outline italic text-[11px]">Não informado</span>
+                      )}
+                    </td>
+                    <td className="px-md py-md text-outline font-mono">{c.email}</td>
+                    <td className="px-md py-md">
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-tighter ${
+                        c.plan 
+                          ? "bg-green-500/10 border-green-500/20 text-green-400" 
+                          : "bg-surface-variant/50 border-outline-variant/20 text-outline"
+                      }`}>
+                        {c.plan || "Sem plano"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="block md:hidden space-y-sm">
+            {clients.map(c => (
+              <div key={c.uid} className="bg-surface-container-high border border-outline-variant/10 rounded-lg p-sm flex items-center gap-sm">
+                <img 
+                  src={c.avatarUrl || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=60"} 
+                  alt={c.name}
+                  className="w-12 h-12 rounded-full object-cover border border-outline-variant/20 shrink-0"
+                />
+                <div className="min-w-0 flex-1 space-y-[2px]">
+                  <h4 className="font-bold text-on-surface text-sm truncate">{c.name}</h4>
+                  <p className="text-[10px] text-outline font-mono truncate">{c.email}</p>
+                  {c.phone ? (
+                    <a href={`tel:${c.phone}`} className="text-xs text-tertiary font-bold flex items-center gap-xs">
+                      <span className="material-symbols-outlined text-xs">call</span>
+                      {c.phone}
+                    </a>
+                  ) : (
+                    <span className="text-outline italic text-[10px]">Sem telefone</span>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       )}
@@ -1095,9 +1395,14 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-md rounded-2xl overflow-hidden border border-outline-variant/30">
             <div className="p-md border-b border-outline-variant/20 flex justify-between items-center bg-surface-container-high">
-              <h3 className="font-headline-sm text-headline-sm text-on-surface">Gerar Novo Serviço</h3>
+              <h3 className="font-headline-sm text-headline-sm text-on-surface">
+                {editingServiceIndex !== null ? "Editar Serviço" : "Gerar Novo Serviço"}
+              </h3>
               <button 
-                onClick={() => setShowServiceModal(false)}
+                onClick={() => {
+                  setShowServiceModal(false);
+                  setEditingServiceIndex(null);
+                }}
                 className="text-on-surface-variant hover:text-tertiary p-1 rounded-full hover:bg-surface-variant/20"
               >
                 <span className="material-symbols-outlined">close</span>
@@ -1180,11 +1485,14 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
                   type="submit"
                   className="flex-1 bg-tertiary text-on-tertiary font-bold py-3 rounded-lg hover:brightness-110 active:scale-95 transition-all text-xs uppercase"
                 >
-                  Salvar Serviço
+                  {editingServiceIndex !== null ? "Atualizar Serviço" : "Salvar Serviço"}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowServiceModal(false)}
+                  onClick={() => {
+                    setShowServiceModal(false);
+                    setEditingServiceIndex(null);
+                  }}
                   className="flex-1 border border-outline-variant text-on-surface font-bold py-3 rounded-lg hover:bg-surface-variant active:scale-95 transition-all text-xs uppercase"
                 >
                   Cancelar
@@ -1194,7 +1502,195 @@ export default function BarberProfile({ user, navigateTo, refreshUser, initialTa
           </div>
         </div>
       )}
+      
+      {showBlockModal && (
+        <BlockTimeModal
+          date={new Date().toISOString().split("T")[0]}
+          onSave={handleSaveBlock}
+          onClose={() => setShowBlockModal(false)}
+        />
+      )}
 
+    </div>
+  );
+}
+
+// ─── Block Time Modal ─────────────────────────────────────────────────────────
+
+function BlockTimeModal({ date, onSave, onClose }) {
+  const [formData, setFormData] = useState({
+    date: date || "",
+    startTime: "09:00",
+    duration: 30,
+    reason: "Particular"
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const times = [];
+  for (let h = 7; h <= 22; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      times.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    }
+  }
+
+  const commonReasons = ["Particular", "Almoço", "Médico", "Treinamento", "Folga"];
+
+  const set = (key, val) => setFormData((f) => ({ ...f, [key]: val }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.date) { setError("Selecione a data."); return; }
+    if (!formData.startTime) { setError("Selecione o horário de início."); return; }
+    if (!formData.reason.trim()) { setError("Informe o motivo do bloqueio."); return; }
+
+    setSaving(true);
+    setError("");
+    try {
+      await onSave(formData);
+    } catch (err) {
+      setError(err.message || "Erro ao salvar o bloqueio.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md bg-surface-container-high border border-outline-variant/30 rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant/10">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-red-500/15 border border-red-500/25 flex items-center justify-center">
+              <span className="material-symbols-outlined text-red-400 text-lg">
+                block
+              </span>
+            </div>
+            <h2 className="font-bold text-on-surface">Bloquear Horário</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition"
+          >
+            <span className="material-symbols-outlined text-lg">close</span>
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {/* Date */}
+          <div className="space-y-1">
+            <label className="text-[10px] text-outline uppercase font-bold tracking-wider">Data do Bloqueio *</label>
+            <input
+              type="date"
+              value={formData.date}
+              onChange={(e) => set("date", e.target.value)}
+              className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-red-400 transition-all"
+              required
+            />
+          </div>
+
+          {/* Time & Duration */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] text-outline uppercase font-bold tracking-wider">Hora de Início *</label>
+              <select
+                value={formData.startTime}
+                onChange={(e) => set("startTime", e.target.value)}
+                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-red-400 transition-all"
+              >
+                {times.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] text-outline uppercase font-bold tracking-wider">Duração</label>
+              <select
+                value={formData.duration}
+                onChange={(e) => set("duration", parseInt(e.target.value))}
+                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-red-400 transition-all"
+              >
+                <option value={15}>15 min</option>
+                <option value={30}>30 min</option>
+                <option value={45}>45 min</option>
+                <option value={60}>1 hora (60 min)</option>
+                <option value={90}>1h30 (90 min)</option>
+                <option value={120}>2 horas (120 min)</option>
+                <option value={180}>3 horas (180 min)</option>
+                <option value={240}>4 horas (240 min)</option>
+                <option value={480}>Expediente Inteiro (8h)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Reason */}
+          <div className="space-y-2">
+            <label className="text-[10px] text-outline uppercase font-bold tracking-wider">Motivo / Descrição *</label>
+            <input
+              type="text"
+              value={formData.reason}
+              onChange={(e) => set("reason", e.target.value)}
+              placeholder="Ex: Assunto Pessoal, Consulta Médica..."
+              className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-red-400 transition-all"
+              required
+            />
+            {/* Quick Chips */}
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {commonReasons.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => set("reason", r)}
+                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
+                    formData.reason === r
+                      ? "bg-red-500/15 border-red-500/30 text-red-400"
+                      : "bg-surface-container border-outline-variant/10 text-on-surface-variant hover:bg-surface-container-high"
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Error message */}
+          {error && (
+            <p className="text-error text-xs font-bold flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm">error</span> {error}
+            </p>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl border border-outline-variant/30 text-on-surface-variant font-bold text-sm hover:bg-surface-container-high transition"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 py-2.5 rounded-xl bg-red-500/80 hover:bg-red-500 text-white font-bold text-sm hover:brightness-110 active:scale-95 transition disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {saving ? (
+                <span className="material-symbols-outlined text-base animate-spin">sync</span>
+              ) : (
+                <span className="material-symbols-outlined text-base">lock</span>
+              )}
+              Confirmar Bloqueio
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

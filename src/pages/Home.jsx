@@ -21,47 +21,85 @@ export default function Home({ user, navigateTo, refreshUser }) {
   const [completedCutsCount, setCompletedCutsCount] = useState(0);
   const [planConfigs, setPlanConfigs] = useState(null);
   const [redeemLoading, setRedeemLoading] = useState(false);
+  const [unitInstagram, setUnitInstagram] = useState("");
 
   useEffect(() => {
     // Carrega dados dinâmicos
     const loadData = async () => {
-      const u = await dbService.getUser(user.uid);
-      setCurrentUser(u);
-      const apts = await dbService.getAppointments(user.uid);
-      setAppointments(apts.filter(a => a.status === "scheduled"));
-      setRescheduleAppointments(apts.filter(a => a.status === "reschedule_needed"));
-      setCompletedCutsCount(apts.filter(a => a.status === "completed").length);
-      const bList = await dbService.getBarbers();
-      setBarbers(bList);
-
       try {
-        const configs = await dbService.getPlanConfigs();
-        setPlanConfigs(configs);
-      } catch (err) {
-        console.warn("Falha ao buscar planConfigs:", err);
-      }
+        const u = await dbService.getUser(user.uid);
+        if (u) setCurrentUser(u);
+        const apts = await dbService.getAppointments(user.uid);
+        
+        // Filtra agendados e ordena do mais próximo para o mais distante
+        const scheduledApts = (apts || [])
+          .filter(a => a.status === "scheduled")
+          .sort((a, b) => {
+            const dtA = new Date(`${a.date}T${a.time || "00:00"}:00`).getTime() || 0;
+            const dtB = new Date(`${b.date}T${b.time || "00:00"}:00`).getTime() || 0;
+            return dtA - dtB;
+          });
 
-      try {
-        const bl = await dbService.getBettingLeaderboard();
-        const sortedBl = [...bl].sort((a, b) => b.points - a.points);
-        const rankIndex = sortedBl.findIndex(item => item.userUid === user.uid);
-        if (rankIndex !== -1) {
-          setBolaoPoints(sortedBl[rankIndex].points);
-          setBolaoRank(rankIndex + 1);
-        } else {
-          setBolaoPoints(0);
-          setBolaoRank(null);
+        setAppointments(scheduledApts);
+        setRescheduleAppointments((apts || []).filter(a => a.status === "reschedule_needed"));
+        setCompletedCutsCount((apts || []).filter(a => a.status === "completed").length);
+        const bList = await dbService.getBarbers();
+        setBarbers(bList);
+
+        try {
+          const configs = u?.unitId
+            ? await dbService.getPlanConfigsByUnit(u.unitId)
+            : await dbService.getPlanConfigs();
+          setPlanConfigs(configs);
+        } catch (err) {
+          console.warn("Falha ao buscar planConfigs:", err);
         }
-      } catch (err) {
-        console.warn("Falha ao buscar ranking do bolao:", err);
+
+        try {
+          if (u && u.unitId) {
+            const allUnits = await dbService.getUnits();
+            const userUnit = allUnits.find(un => un.id === u.unitId);
+            if (userUnit && userUnit.instagram) {
+              setUnitInstagram(userUnit.instagram);
+            }
+          }
+        } catch (err) {
+          console.warn("Falha ao buscar Instagram da unidade:", err);
+        }
+
+        try {
+          const bl = await dbService.getBettingLeaderboard();
+          const sortedBl = [...bl].sort((a, b) => b.points - a.points);
+          const rankIndex = sortedBl.findIndex(item => item.userUid === user.uid);
+          if (rankIndex !== -1) {
+            setBolaoPoints(sortedBl[rankIndex].points);
+            setBolaoRank(rankIndex + 1);
+          } else {
+            setBolaoPoints(0);
+            setBolaoRank(null);
+          }
+        } catch (err) {
+          console.warn("Falha ao buscar ranking do bolao:", err);
+        }
+      } catch (e) {
+        console.error("Erro ao carregar dados da Home:", e);
       }
     };
+    
     loadData();
 
+    // Atualiza periodicamente para refletir novos agendamentos e status instantaneamente
+    const interval = setInterval(loadData, 4000);
+
     // Trigger de animação de progresso
-    setTimeout(() => {
+    const timeout = setTimeout(() => {
       setAnimateWidth("65%");
     }, 200);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
   }, [user]);
 
   const getXpRewardValue = (planName) => {
@@ -400,13 +438,29 @@ export default function Home({ user, navigateTo, refreshUser }) {
       })()}
 
       {/* Discovery/Quick Links */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-sm">
-        <div className="glass-card p-sm rounded-xl aspect-square flex flex-col items-center justify-center gap-2 text-center group cursor-pointer hover:bg-tertiary/5 transition-all">
+      <div className={`grid ${unitInstagram ? "grid-cols-3" : "grid-cols-2"} gap-sm`}>
+        <div 
+          onClick={() => navigateTo("club_store")}
+          className="glass-card p-sm rounded-xl aspect-square flex flex-col items-center justify-center gap-2 text-center group cursor-pointer hover:bg-tertiary/5 transition-all"
+        >
           <div className="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center group-hover:bg-tertiary/20 transition-colors">
             <span className="material-symbols-outlined text-tertiary">history</span>
           </div>
           <span className="font-label-md text-label-md text-on-surface">Histórico</span>
         </div>
+        {unitInstagram && (
+          <a
+            href={`https://instagram.com/${unitInstagram}`}
+            target="_blank"
+            rel="noreferrer"
+            className="glass-card p-sm rounded-xl aspect-square flex flex-col items-center justify-center gap-2 text-center group hover:bg-tertiary/5 transition-all"
+          >
+            <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] flex items-center justify-center group-hover:scale-110 transition-transform">
+              <span className="material-symbols-outlined text-white text-xl">photo_camera</span>
+            </div>
+            <span className="font-label-md text-label-md text-on-surface">Visite nosso Insta</span>
+          </a>
+        )}
         <div 
           onClick={() => navigateTo("club_store")}
           className="glass-card p-sm rounded-xl aspect-square flex flex-col items-center justify-center gap-2 text-center group cursor-pointer hover:bg-tertiary/5 transition-all"
@@ -415,18 +469,6 @@ export default function Home({ user, navigateTo, refreshUser }) {
             <span className="material-symbols-outlined text-tertiary">shopping_bag</span>
           </div>
           <span className="font-label-md text-label-md text-on-surface">Loja Clubber</span>
-        </div>
-        <div className="glass-card p-sm rounded-xl aspect-square flex flex-col items-center justify-center gap-2 text-center group cursor-pointer hover:bg-tertiary/5 transition-all">
-          <div className="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center group-hover:bg-tertiary/20 transition-colors">
-            <span className="material-symbols-outlined text-tertiary">diversity_3</span>
-          </div>
-          <span className="font-label-md text-label-md text-on-surface">Indicar Amigo</span>
-        </div>
-        <div className="glass-card p-sm rounded-xl aspect-square flex flex-col items-center justify-center gap-2 text-center group cursor-pointer hover:bg-tertiary/5 transition-all">
-          <div className="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center group-hover:bg-tertiary/20 transition-colors">
-            <span className="material-symbols-outlined text-tertiary">support_agent</span>
-          </div>
-          <span className="font-label-md text-label-md text-on-surface">Suporte VIP</span>
         </div>
       </div>
 
